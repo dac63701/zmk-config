@@ -8,7 +8,7 @@
 # board: [ "nice_nano" ]
 # shield: [ "corne_left", "corne_right" ]
 include:
-  - board: dac1
+#  - board: dac1
 #   - board: bdn9_rev2
 #   - board: nice_nano
 #     shield: reviung41
@@ -18,3 +18,4 @@ include:
 #     cmake-args: -DCONFIG_ZMK_STUDIO=y
 #     artifact-name: corne_left_with_studio
 #
+  - board: nice60
