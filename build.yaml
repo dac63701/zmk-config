@@ -19,3 +19,4 @@ include:
 #     artifact-name: corne_left_with_studio
 #
   - board: nice60//zmk
+    artifact-name: nice60-zmk
