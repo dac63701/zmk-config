@@ -10,6 +10,3 @@
 include:
   - board: 60wkeyboard//zmk
     artifact-name: 60wkeyboard
-  - board: nice_nano
-    shield: settings_reset
-    artifact-name: settings-reset
