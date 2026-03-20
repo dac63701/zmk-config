@@ -1,0 +1,5 @@
+/* Empty — no SPI or other peripherals in base build.
+   Re-add spi3_default/spi3_sleep here when RGB is enabled later. */
+
+&pinctrl {
+};

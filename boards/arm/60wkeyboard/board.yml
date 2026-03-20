@@ -1,0 +1,7 @@
+board:
+  name: 60wkeyboard
+  vendor: custom
+  socs:
+    - name: nrf52840
+      variants:
+        - name: zmk
