@@ -18,4 +18,4 @@ include:
 #     cmake-args: -DCONFIG_ZMK_STUDIO=y
 #     artifact-name: corne_left_with_studio
 #
-  - board: nice60
+  - board: nice60//zmk
