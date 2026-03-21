@@ -80,7 +80,7 @@
     // Node name must match original "EXT_POWER" label to preserve user settings.
     EXT_POWER {
         compatible = "zmk,ext-power-generic";
-        control-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
+        control-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
     };
 };
 
