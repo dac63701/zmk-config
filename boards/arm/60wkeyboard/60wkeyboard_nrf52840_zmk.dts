@@ -132,6 +132,18 @@
     npm1300: pmic@6b {
         compatible = "nordic,npm1300";
         reg = <0x6b>;
+        host-reset-allowed;
+
+        regulators {
+            compatible = "nordic,npm1300-regulator";
+
+            BUCK2 {
+                regulator-min-microvolt = <3300000>;
+                regulator-max-microvolt = <3300000>;
+                regulator-boot-on;
+                regulator-always-on;
+            };
+        };
 
         npm1300_charger: charger {
             compatible = "nordic,npm1300-charger";
