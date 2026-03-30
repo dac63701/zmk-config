@@ -40,63 +40,63 @@
         >;
     };
 
+    // kscan0: kscan {
+    //     compatible = "zmk,kscan-gpio-matrix";
+    //     wakeup-source;
+
+    //     diode-direction = "col2row";
+    //     row-gpios
+    //         = <&gpio1 14 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+    //         , <&gpio1 13 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+    //         , <&gpio1 12 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+    //         , <&gpio1 11 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+    //         , <&gpio1 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+    //         ;
+    //     col-gpios
+    //         = <&gpio1 15 GPIO_ACTIVE_HIGH>
+    //         , <&gpio0 29 GPIO_ACTIVE_HIGH>
+    //         , <&gpio0 31 GPIO_ACTIVE_HIGH>
+    //         , <&gpio0 30 GPIO_ACTIVE_HIGH>
+    //         , <&gpio0 28 GPIO_ACTIVE_HIGH>
+    //         , <&gpio0 2  GPIO_ACTIVE_HIGH>
+    //         , <&gpio0 3  GPIO_ACTIVE_HIGH>
+    //         , <&gpio1 3  GPIO_ACTIVE_HIGH>
+    //         , <&gpio1 7  GPIO_ACTIVE_HIGH>
+    //         , <&gpio1 4  GPIO_ACTIVE_HIGH>
+    //         , <&gpio1 6  GPIO_ACTIVE_HIGH>
+    //         , <&gpio1 5  GPIO_ACTIVE_HIGH>
+    //         , <&gpio1 1  GPIO_ACTIVE_HIGH>
+    //         , <&gpio1 2  GPIO_ACTIVE_HIGH>
+    //         ;
+    // };
     kscan0: kscan {
         compatible = "zmk,kscan-gpio-matrix";
         wakeup-source;
-
         diode-direction = "col2row";
         row-gpios
-            = <&gpio1 14 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-            , <&gpio1 13 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-            , <&gpio1 12 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-            , <&gpio1 11 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-            , <&gpio1 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+            = <&gpio0 12 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  /* ROW_0 - TRACEDATA2/P0.12 */
+            , <&gpio0  8 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  /* ROW_1 - P0.08           */
+            , <&gpio0  7 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  /* ROW_2 - TRACECLK/P0.07  */
+            , <&gpio1  9 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  /* ROW_3 - TRACEDATA3/P1.09*/
+            , <&gpio0 11 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  /* ROW_4 - NFC2/P0.11      */
             ;
         col-gpios
-            = <&gpio1 15 GPIO_ACTIVE_HIGH>
-            , <&gpio0 29 GPIO_ACTIVE_HIGH>
-            , <&gpio0 31 GPIO_ACTIVE_HIGH>
-            , <&gpio0 30 GPIO_ACTIVE_HIGH>
-            , <&gpio0 28 GPIO_ACTIVE_HIGH>
-            , <&gpio0 2  GPIO_ACTIVE_HIGH>
-            , <&gpio0 3  GPIO_ACTIVE_HIGH>
-            , <&gpio1 3  GPIO_ACTIVE_HIGH>
-            , <&gpio1 7  GPIO_ACTIVE_HIGH>
-            , <&gpio1 4  GPIO_ACTIVE_HIGH>
-            , <&gpio1 6  GPIO_ACTIVE_HIGH>
-            , <&gpio1 5  GPIO_ACTIVE_HIGH>
-            , <&gpio1 1  GPIO_ACTIVE_HIGH>
-            , <&gpio1 2  GPIO_ACTIVE_HIGH>
+            = <&gpio0 24 GPIO_ACTIVE_HIGH>   /* COL_0  - P0.24 */
+            , <&gpio0 22 GPIO_ACTIVE_HIGH>   /* COL_1  - P0.22 */
+            , <&gpio0 20 GPIO_ACTIVE_HIGH>   /* COL_2  - P0.20 */
+            , <&gpio0 17 GPIO_ACTIVE_HIGH>   /* COL_3  - P0.17 */
+            , <&gpio0 15 GPIO_ACTIVE_HIGH>   /* COL_4  - P0.15 */
+            , <&gpio0 14 GPIO_ACTIVE_HIGH>   /* COL_5  - P0.14 */
+            , <&gpio0 25 GPIO_ACTIVE_HIGH>   /* COL_6  - P0.25 */
+            , <&gpio0 13 GPIO_ACTIVE_HIGH>   /* COL_7  - P0.13 */
+            , <&gpio0 16 GPIO_ACTIVE_HIGH>   /* COL_8  - P0.16 */
+            , <&gpio0 19 GPIO_ACTIVE_HIGH>   /* COL_9  - P0.19 */
+            , <&gpio0 21 GPIO_ACTIVE_HIGH>   /* COL_10 - P0.21 */
+            , <&gpio0 23 GPIO_ACTIVE_HIGH>   /* COL_11 - P0.23 */
+            , <&gpio0 10 GPIO_ACTIVE_HIGH>   /* COL_12 - P0.10 */
+            , <&gpio1  0 GPIO_ACTIVE_HIGH>   /* COL_13 - P1.00 */
             ;
     };
-    //kscan0: kscan {
-    //     compatible = "zmk,kscan-gpio-matrix";
-    //     wakeup-source;
-    //     diode-direction = "col2row";
-    //     row-gpios
-    //         = <&gpio0 12 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  /* ROW_0 - TRACEDATA2/P0.12 */
-    //         , <&gpio0  8 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  /* ROW_1 - P0.08           */
-    //         , <&gpio0  7 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  /* ROW_2 - TRACECLK/P0.07  */
-    //         , <&gpio1  9 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  /* ROW_3 - TRACEDATA3/P1.09*/
-    //         , <&gpio0 11 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  /* ROW_4 - NFC2/P0.11      */
-    //         ;
-    //     col-gpios
-    //         = <&gpio0 24 GPIO_ACTIVE_HIGH>   /* COL_0  - P0.24 */
-    //         , <&gpio0 22 GPIO_ACTIVE_HIGH>   /* COL_1  - P0.22 */
-    //         , <&gpio0 20 GPIO_ACTIVE_HIGH>   /* COL_2  - P0.20 */
-    //         , <&gpio0 17 GPIO_ACTIVE_HIGH>   /* COL_3  - P0.17 */
-    //         , <&gpio0 15 GPIO_ACTIVE_HIGH>   /* COL_4  - P0.15 */
-    //         , <&gpio0 14 GPIO_ACTIVE_HIGH>   /* COL_5  - P0.14 */
-    //         , <&gpio0 25 GPIO_ACTIVE_HIGH>   /* COL_6  - P0.25 */
-    //         , <&gpio0 13 GPIO_ACTIVE_HIGH>   /* COL_7  - P0.13 */
-    //         , <&gpio0 16 GPIO_ACTIVE_HIGH>   /* COL_8  - P0.16 */
-    //         , <&gpio0 19 GPIO_ACTIVE_HIGH>   /* COL_9  - P0.19 */
-    //         , <&gpio0 21 GPIO_ACTIVE_HIGH>   /* COL_10 - P0.21 */
-    //         , <&gpio0 23 GPIO_ACTIVE_HIGH>   /* COL_11 - P0.23 */
-    //         , <&gpio0 10 GPIO_ACTIVE_HIGH>   /* COL_12 - P0.10 */
-    //         , <&gpio1  0 GPIO_ACTIVE_HIGH>   /* COL_13 - P1.00 */
-    //         ;
-    // };
 
     leds {
         compatible = "gpio-leds";
