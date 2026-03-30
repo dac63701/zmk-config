@@ -86,14 +86,14 @@
             , <&gpio0 21 GPIO_ACTIVE_HIGH>   /* COL_2  */
             , <&gpio0 19 GPIO_ACTIVE_HIGH>   /* COL_3  */
             , <&gpio0 16 GPIO_ACTIVE_HIGH>   /* COL_4  */
-            , <&gpio0 10 GPIO_ACTIVE_HIGH>   /* COL_5  */
+            , <&gpio0 14 GPIO_ACTIVE_HIGH>   /* COL_5  */
             , <&gpio0 26 GPIO_ACTIVE_HIGH>   /* COL_6  */
             , <&gpio0 13 GPIO_ACTIVE_HIGH>   /* COL_7  */
             , <&gpio0 15 GPIO_ACTIVE_HIGH>   /* COL_8  */
             , <&gpio0 17 GPIO_ACTIVE_HIGH>   /* COL_9  */
-            , <&gpio0 24 GPIO_ACTIVE_HIGH>   /* COL_10 */
+            , <&gpio0 20 GPIO_ACTIVE_HIGH>   /* COL_10 */
             , <&gpio0 22 GPIO_ACTIVE_HIGH>   /* COL_11 */
-            , <&gpio0 20 GPIO_ACTIVE_HIGH>   /* COL_12 */
+            , <&gpio0 24 GPIO_ACTIVE_HIGH>   /* COL_12 */
             , <&gpio1  0 GPIO_ACTIVE_HIGH>   /* COL_13 */
             ;
     };
