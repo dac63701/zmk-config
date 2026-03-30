@@ -145,6 +145,13 @@ zephyr_udc0: &usbd {
     status = "okay";
 };
 
+npm1300_charger: charger {
+    compatible = "nordic,npm1300-charger";
+    term-microvolt = <4200000>;
+    current-microamp = <800000>;
+    vbus-limit-microamp = <500000>;
+};
+
 &flash0 {
     /*
      * For more information, see:
