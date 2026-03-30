@@ -132,7 +132,6 @@
     npm1300: pmic@6b {
         compatible = "nordic,npm1300";
         reg = <0x6b>;
-        host-reset-allowed;
 
         regulators {
             compatible = "nordic,npm1300-regulator";
