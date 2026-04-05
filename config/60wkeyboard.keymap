@@ -32,7 +32,7 @@
             // |    BT 3     |     |      |      |     |     |  PREV | NEXT | VOLDN |  VOLUP  |                  |
             // |   BT 4  |      |      |             TOG RGB                |  MUTE  | PRT SCR |         |  DEL  |
             // ------------------------------------------------------------------------------------------------
-            bindings = 
+            bindings = <
                 &bt BT_CLR    &kp F1    &kp F2    &kp F3    &kp F4  &kp F5  &kp F6  &kp F7      &kp F8      &kp F9       &kp F10      &kp F11     &kp F12  &trans
                 &bt BT_SEL 0  &trans    &kp UP    &trans    &trans  &trans  &trans  &trans      &trans      &trans       &trans       &trans      &trans          &trans
                 &bt BT_SEL 1  &kp LEFT  &kp DOWN  &kp RIGHT &trans  &trans  &trans  &trans      &trans      &kp C_PP     &trans       &trans            &trans
