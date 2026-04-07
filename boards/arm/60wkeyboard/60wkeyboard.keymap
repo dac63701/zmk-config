@@ -33,7 +33,7 @@
                 &bt BT_CLR    &kp F1    &kp F2    &kp F3    &kp F4  &kp F5  &kp F6  &kp F7      &kp F8      &kp F9       &kp F10      &kp F11     &kp F12  &trans
                 &bt BT_SEL 0  &trans    &kp UP    &trans    &kp PG_UP  &trans  &trans  &trans      &trans      &trans       &trans       &trans      &trans          &kp C_PP
                 &bt BT_SEL 1  &kp LEFT  &kp DOWN  &kp RIGHT &kp PG_DN  &trans  &trans  &trans      &trans      &trans     &trans       &trans            &trans
-                &bt BT_SEL 2  &trans    &trans    &trans    &trans  &trans  &kp C_VOL_DN  &kp C_VOL_UP  &kp C_PREV  &kp C_Next  &trans                        &trans
+                &bt BT_SEL 2  &trans    &trans    &trans    &trans  &trans  &kp C_VOL_DN  &kp C_VOL_UP  &kp C_PREV  &kp C_NEXT  &trans                        &trans
                 &bt BT_SEL 3  &trans    &trans                            &rgb_ug RGB_TOG                         &kp C_MUTE   &kp PSCRN      &trans    &kp DEL
             >;
         };
