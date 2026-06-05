@@ -1,3 +1,6 @@
 build:
+  cmake: modules/npm1300_vbat
+  kconfig: modules/npm1300_vbat/Kconfig
   settings:
     board_root: .
+    dts_root: modules/npm1300_vbat
