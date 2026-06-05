@@ -2,5 +2,3 @@
 description: ZMK custom nPM1300 VBAT sensor
 
 compatible: "zmk,npm1300-vbat"
-
-include: [sensor-device.yaml]

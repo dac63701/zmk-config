@@ -157,9 +157,8 @@
             trickle-microvolt = <2900000>;
         };
 
-        npm1300_vbat: npm1300_vbat@6b {
+        npm1300_vbat: npm1300_vbat {
             compatible = "zmk,npm1300-vbat";
-            reg = <0x6b>;
             status = "okay";
         };
     };
