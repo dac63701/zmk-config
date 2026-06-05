@@ -1,0 +1,7 @@
+name: zmk-driver-npm1300-vbat
+
+build:
+  cmake: .
+  kconfig: Kconfig
+  settings:
+    dts_root: .

@@ -25,7 +25,7 @@
         zmk,kscan = &kscan0;
         zmk,physical-layout = &layout_60_ansi;
         zmk,underglow = &led_strip;
-        zmk,battery = &npm1300_charger;
+        zmk,battery = &npm1300_vbat;
     };
 
     default_transform: keymap_transform_0 {
@@ -154,6 +154,13 @@
             vbus-limit-microamp = <500000>;
             thermistor-ohms = <10000>;
             thermistor-beta = <3380>;
+            trickle-microvolt = <2900000>;
+        };
+
+        npm1300_vbat: npm1300_vbat@6b {
+            compatible = "zmk,npm1300-vbat";
+            reg = <0x6b>;
+            status = "okay";
         };
     };
 };
