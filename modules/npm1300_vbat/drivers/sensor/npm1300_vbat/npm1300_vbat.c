@@ -15,6 +15,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
+#include "battery_thresholds.h"
+
 LOG_MODULE_REGISTER(npm1300_vbat, CONFIG_SENSOR_LOG_LEVEL);
 
 /* Nordic nPMx TASKENTERSHIPMODE: SHPHLD base 0x0b, offset 0x02. */
@@ -30,8 +32,7 @@ struct npm1300_vbat_config {
 struct npm1300_vbat_data {
     const struct device *dev;
     struct k_work_delayable monitor_work;
-    uint8_t critical_samples;
-    bool warning_active;
+    struct npm1300_battery_state battery_state;
 };
 
 static int npm1300_vbat_read(const struct device *dev, struct sensor_value *voltage)
@@ -115,34 +116,41 @@ static void npm1300_monitor_work(struct k_work *work)
     if (ret == 0) {
         int32_t millivolts = voltage.val1 * 1000 + voltage.val2 / 1000;
 
-        if (millivolts <= CONFIG_ZMK_NPM1300_WARNING_MV) {
-            /* Keep enforcing this in case an activity event tries to restore LEDs. */
-            npm1300_disable_nonessential_loads(config);
+        struct npm1300_battery_thresholds thresholds = {
+            .warning_mv = CONFIG_ZMK_NPM1300_WARNING_MV,
+            .ship_mv = CONFIG_ZMK_NPM1300_SHIP_MV,
+            .recovery_mv = CONFIG_ZMK_NPM1300_RECOVERY_MV,
+            .ship_confirm_samples = CONFIG_ZMK_NPM1300_SHIP_CONFIRM_SAMPLES,
+        };
+        bool vbus_present = false;
+        ret = npm1300_vbus_present(config, &vbus_present);
+        if (ret != 0) {
+            LOG_ERR("Failed to read VBUS status: %d", ret);
+        } else {
+            enum npm1300_battery_action action = npm1300_battery_step(
+                &data->battery_state, &thresholds, millivolts, vbus_present);
 
-            if (!data->warning_active) {
-                data->warning_active = true;
+            switch (action) {
+            case NPM1300_BATTERY_ACTION_DISABLE_LOAD:
                 LOG_WRN("Low battery: %d mV; disabling nonessential loads", millivolts);
-            }
-        } else if (millivolts >= CONFIG_ZMK_NPM1300_RECOVERY_MV) {
-            if (data->warning_active) {
+                /* Continue enforcing the cutoff on every monitor cycle. */
+                npm1300_disable_nonessential_loads(config);
+                break;
+            case NPM1300_BATTERY_ACTION_ENABLE_LOAD:
                 npm1300_enable_nonessential_loads(config);
-            }
-            data->warning_active = false;
-            data->critical_samples = 0;
-        }
-
-        if (millivolts <= CONFIG_ZMK_NPM1300_SHIP_MV) {
-            if (data->critical_samples < CONFIG_ZMK_NPM1300_SHIP_CONFIRM_SAMPLES) {
-                data->critical_samples++;
-            }
-            if (data->critical_samples >= CONFIG_ZMK_NPM1300_SHIP_CONFIRM_SAMPLES) {
+                break;
+            case NPM1300_BATTERY_ACTION_ENTER_SHIP:
                 ret = npm1300_enter_ship_mode(config);
                 if (ret == 0) {
                     return;
                 }
+                break;
+            default:
+                if (data->battery_state.warning_active) {
+                    npm1300_disable_nonessential_loads(config);
+                }
+                break;
             }
-        } else {
-            data->critical_samples = 0;
         }
     } else {
         LOG_ERR("Failed to monitor battery voltage: %d", ret);

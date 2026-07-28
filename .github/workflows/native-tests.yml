@@ -1,0 +1,27 @@
+name: Native battery tests
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  battery-thresholds:
+    runs-on: ubuntu-latest
+    container:
+      image: zmkfirmware/zmk-build-arm:stable
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize west
+        run: west init -l config
+
+      - name: Update west dependencies
+        run: west update --fetch-opt=--filter=tree:0
+
+      - name: Export Zephyr package
+        run: west zephyr-export
+
+      - name: Build native simulator test
+        run: west build -s modules/npm1300_vbat/tests -d build/npm1300-vbat-test -b native_sim/native/64
+
+      - name: Run native simulator test
+        run: build/npm1300-vbat-test/zephyr/zephyr.exe

@@ -1,0 +1,59 @@
+#include <zephyr/ztest.h>
+
+#include "battery_thresholds.h"
+
+static const struct npm1300_battery_thresholds thresholds = {
+    .warning_mv = 3500,
+    .ship_mv = 3200,
+    .recovery_mv = 3600,
+    .ship_confirm_samples = 3,
+};
+
+ZTEST(npm1300_vbat, test_warning_and_recovery_hysteresis)
+{
+    struct npm1300_battery_state state = {0};
+
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3500, false),
+                  NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
+    zassert_true(state.warning_active, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3499, false),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3599, false),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3600, false),
+                  NPM1300_BATTERY_ACTION_ENABLE_LOAD, NULL);
+    zassert_false(state.warning_active, NULL);
+}
+
+ZTEST(npm1300_vbat, test_ship_confirmation_and_vbus_deferral)
+{
+    struct npm1300_battery_state state = {0};
+
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3200, false),
+                  NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3199, true),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3199, true),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3199, false),
+                  NPM1300_BATTERY_ACTION_ENTER_SHIP, NULL);
+}
+
+ZTEST(npm1300_vbat, test_voltage_above_ship_resets_confirmation)
+{
+    struct npm1300_battery_state state = {0};
+
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3100, false),
+                  NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3250, false),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_equal(state.critical_samples, 0, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3200, false),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3200, false),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3200, false),
+                  NPM1300_BATTERY_ACTION_ENTER_SHIP, NULL);
+}
+
+ZTEST_SUITE(npm1300_vbat, NULL, NULL, NULL, NULL, NULL);
