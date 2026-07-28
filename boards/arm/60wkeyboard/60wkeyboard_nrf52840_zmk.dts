@@ -70,15 +70,8 @@
             ;
     };
 
-    leds {
-        compatible = "gpio-leds";
-        blue_led: led_0 {
-            gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
-        };
-    };
-
     // Node name must match original "EXT_POWER" label to preserve user settings.
-    EXT_POWER {
+    led_power: EXT_POWER {
         compatible = "zmk,ext-power-generic";
         control-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
     };
@@ -148,17 +141,23 @@
         npm1300_charger: charger {
             compatible = "nordic,npm1300-charger";
             term-microvolt = <4200000>;
-            term-warm-microvolt = <4000000>;
-            current-microamp = <800000>;
+            current-microamp = <500000>;
             dischg-limit-microamp = <1000000>;
             vbus-limit-microamp = <500000>;
-            thermistor-ohms = <10000>;
-            thermistor-beta = <3380>;
+            /* No cell thermistor is fitted; this makes BCHGDISABLESET disable NTC. */
+            thermistor-ohms = <0>;
+            thermistor-beta = <3380>; /* Required by the binding; ignored when ohms is 0. */
             trickle-microvolt = <2900000>;
+            term-current-percent = <10>;
+            charging-enable;
+            vbatlow-charge-enable;
         };
 
         npm1300_vbat: npm1300_vbat {
             compatible = "zmk,npm1300-vbat";
+            charger = <&npm1300_charger>;
+            pmic = <&npm1300>;
+            load-switch-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
             status = "okay";
         };
     };

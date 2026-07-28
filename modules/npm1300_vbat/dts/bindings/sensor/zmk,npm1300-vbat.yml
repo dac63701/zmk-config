@@ -1,4 +1,21 @@
 # SPDX-License-Identifier: MIT
-description: ZMK custom nPM1300 VBAT sensor
+description: nPM1300 low-voltage protection and ZMK battery sensor adapter
 
 compatible: "zmk,npm1300-vbat"
+
+include: sensor-device.yaml
+
+properties:
+  charger:
+    type: phandle
+    required: true
+    description: nPM1300 charger sensor used to obtain battery and VBUS state
+
+  pmic:
+    type: phandle
+    required: true
+    description: Parent nPM1300 MFD used to request ship mode
+
+  load-switch-gpios:
+    type: phandle-array
+    description: Nonessential-load enable driven inactive at low battery
