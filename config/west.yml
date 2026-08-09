@@ -4,11 +4,11 @@ manifest:
       url-base: https://github.com/darknao
   projects:
     - name: zmk
-      # darknao/rgb-layer-25.08, pinned after syntax and compatibility review.
+      # darknao/zmk-perkey_ug, pinned after syntax and compatibility review.
       # Do not replace this hash with a branch name: layer-map behavior must be
       # reproducible across firmware builds.
       remote: darknao
-      revision: 8aeaaa66fbb4b94948c8763e06f1920ab0b69480
+      revision: 453d2d8536106c1b5ba2ae68d6a2267965c16935
       import: app/west.yml
   self:
     path: config

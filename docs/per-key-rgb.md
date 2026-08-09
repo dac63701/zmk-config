@@ -1,6 +1,6 @@
 # Per-key RGB map
 
-The configuration uses the pinned `darknao/zmk` RGB-layer revision in
+The configuration uses the pinned `darknao/zmk-perkey_ug` revision in
 `config/west.yml`. It drives the existing 61-pixel WS2812 chain and preserves
 the `EXT_POWER` LED rail control.
 
