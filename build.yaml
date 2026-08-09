@@ -8,5 +8,7 @@
 # board: [ "nice_nano" ]
 # shield: [ "corne_left", "corne_right" ]
 include:
-  - board: 60wkeyboard//zmk
+  # This ZMK revision registers the custom board using the legacy board
+  # target name; `60wkeyboard//zmk` is not a valid board identifier here.
+  - board: 60wkeyboard_nrf52840_zmk
     artifact-name: 60wkeyboard

@@ -1,5 +1,6 @@
 file_format: "1"
-id: 60wkeyboard//zmk
+# The pinned rgb-layer fork uses the legacy Zephyr board target name.
+id: 60wkeyboard_nrf52840_zmk
 name: 60wkeyboard
 type: board
 arch: arm
