@@ -1,7 +1,11 @@
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/keys.h>
 #include <dt-bindings/zmk/rgb.h>
+#include <dt-bindings/zmk/rgb_colors.h>
 #include <dt-bindings/zmk/bt.h>
+
+#define CYAN 0x00ffff
+#define MAGENTA 0xff00ff
 / {
     keymap {
         compatible = "zmk,keymap";
@@ -24,17 +28,45 @@
         rgb_layer {
             // ------------------------------------------------------------------------------------------------
             // | BT CLR | F1  | F2  | F3  | F4  | F5  | F6  | F7  | F8  | F9  | F10  | F11 | F12 |        |
-            // |  BT 1   |   |  UP |   |   | UP |   |   |   |     |    |     |     |           |            PP
-            // |   BT 2   | LT |  DN  | RT | DN |   |   |   |   |      |   |     |             |
-            // |    BT 3     |     |      |      |     |     |  VOLDN | VOLUP | PREV |  NEXT  |                  |
+            // |  BT 1   |   |  UP |   | PGUP | BRI | BRD | SPI | SPD | SAI | HUI | HUD | SAD |            PP
+            // |   BT 2   | LT |  DN  | RT | PGDN |   |   |   |   |      |   |     |             |
+            // |    BT 3     | EFR | EFF |      |     |     |  VOLDN | VOLUP | PREV |  NEXT  |                  |
             // |   BT 4  |      |      |             TOG RGB                |  MUTE  | PRT SCR |         |  DEL  |
             // ------------------------------------------------------------------------------------------------
             bindings = <
                 &bt BT_CLR    &kp F1    &kp F2    &kp F3    &kp F4  &kp F5  &kp F6  &kp F7      &kp F8      &kp F9       &kp F10      &kp F11     &kp F12  &trans
-                &bt BT_SEL 0  &trans    &kp UP    &trans    &kp PG_UP  &trans  &trans  &trans      &trans      &trans       &trans       &trans      &trans          &kp C_PP
+                &bt BT_SEL 0  &trans    &kp UP    &trans    &kp PG_UP  &rgb_ug RGB_BRI &rgb_ug RGB_BRD &rgb_ug RGB_SPI &rgb_ug RGB_SPD &rgb_ug RGB_SAI &rgb_ug RGB_HUI &rgb_ug RGB_HUD &rgb_ug RGB_SAD &kp C_PP
                 &bt BT_SEL 1  &kp LEFT  &kp DOWN  &kp RIGHT &kp PG_DN  &trans  &trans  &trans      &trans      &trans     &trans       &trans            &trans
-                &bt BT_SEL 2  &trans    &trans    &trans    &trans  &trans  &kp C_VOL_DN  &kp C_VOL_UP  &kp C_PREV  &kp C_NEXT  &trans                        &trans
+                &bt BT_SEL 2  &rgb_ug RGB_EFR &rgb_ug RGB_EFF &trans    &trans  &trans  &kp C_VOL_DN  &kp C_VOL_UP  &kp C_PREV  &kp C_NEXT  &trans                        &trans
                 &bt BT_SEL 3  &trans    &trans                            &rgb_ug RGB_TOG                         &kp C_MUTE   &kp PSCRN      &trans    &kp DEL
+            >;
+        };
+    };
+
+    /*
+     * The rgb-layer fork indexes map bindings in keymap order, while LEDs are
+     * addressed in physical-chain order. This initial lookup assumes the PCB
+     * chain is row-major (Esc through Right Ctrl); see docs/per-key-rgb.md for
+     * the required three-LED hardware verification before relying on legends.
+     */
+    underglow_layer {
+        compatible = "zmk,underglow-layer";
+        pixel-lookup = <
+             0  1  2  3  4  5  6  7  8  9 10 11 12 13
+            14 15 16 17 18 19 20 21 22 23 24 25 26 27
+            28 29 30 31 32 33 34 35 36 37 38 39 40 41
+            42 43 44 45 46 47 48 49 50 51 52 53 54 55
+            56 57 58 59 60
+        >;
+
+        function_layer {
+            layer-id = <1>;
+            bindings = <
+                &ug RED    &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ___
+                &ug CYAN   &ug ___    &ug BLUE   &ug ___    &ug BLUE   &ug GREEN  &ug GREEN  &ug GREEN  &ug GREEN  &ug GREEN  &ug GREEN  &ug GREEN  &ug GREEN  &ug PURPLE
+                &ug CYAN   &ug BLUE   &ug BLUE   &ug BLUE   &ug BLUE   &ug ___    &ug ___    &ug ___    &ug ___    &ug ___    &ug ___    &ug ___    &ug ___
+                &ug CYAN   &ug GREEN  &ug GREEN  &ug ___    &ug ___    &ug ___    &ug MAGENTA &ug MAGENTA &ug PURPLE &ug PURPLE &ug ___    &ug ___
+                &ug CYAN   &ug ___    &ug ___    &ug GREEN  &ug MAGENTA &ug ORANGE &ug WHITE  &ug ORANGE
             >;
         };
     };
