@@ -39,6 +39,7 @@ jobs:
           west update --fetch-opt=--filter=tree:0
           git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-single-board.patch"
           git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-effects.patch"
+          git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-toggle.patch"
           west zephyr-export
 
       - name: Build firmware

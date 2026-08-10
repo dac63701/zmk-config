@@ -1,0 +1,27 @@
+diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
+--- a/app/src/rgb_underglow.c
++++ b/app/src/rgb_underglow.c
+@@ -468,6 +468,13 @@ int zmk_rgb_underglow_cycle_effect(int direction) {
+ }
+ 
+ int zmk_rgb_underglow_toggle(void) {
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    if (state.layer_enabled) {
++        /* Keep the Fn legend visible and apply the toggle when Fn is released. */
++        layer_woke_rgb = !layer_woke_rgb;
++        return 0;
++    }
++#endif
+     return state.on ? zmk_rgb_underglow_off() : zmk_rgb_underglow_on();
+ }
+ 
+@@ -548,6 +555,9 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
+         } else if (was_layer_enabled && state.on) {
+             k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
+         }
++        if (was_layer_enabled) {
++            zmk_rgb_underglow_save_state();
++        }
+     }
+ }
+ #endif /* IS_ENABLED(UNDERGLOW_LAYER_ENABLED) */

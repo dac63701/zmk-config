@@ -45,9 +45,9 @@ Additional RGB controls are placed on previously transparent Fn bindings:
 
 ## Required physical verification
 
-`pixel-lookup` compensates for the PCB's alternating row direction, mapping
-the serpentine electrical chain into left-to-right logical rows. LED 0 is Esc
-and the second and fourth rows are reversed in the lookup table.
+`pixel-lookup` is row-major: LED 0 is Esc and the lookup proceeds left-to-right
+through each row to LED 60 at Right Ctrl. This matches the observed Fn-legend
+positions; the horizontal effect handles visual direction in the renderer.
 
 Before treating the map as final, use a diagnostic build to identify LED 0,
 1, and 2 and update `pixel-lookup` if the chain snakes across rows. For each
