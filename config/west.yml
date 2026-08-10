@@ -16,7 +16,8 @@ manifest:
       remote: nrfconnect
       repo-path: sdk-nrfxlib
       path: nrfxlib
-      # nRF Connect SDK 3.1.1 companion revision for Zephyr 4.1.
-      revision: 3b210a24d3bc7ecfc268e0feab6436306b11e7cb
+      # nRF Connect SDK 2.6 companion revision for the Zephyr 3.5 generation
+      # used by the pinned ZMK fork and its SDK 0.16.9 build image.
+      revision: v2.6.0
   self:
     path: config

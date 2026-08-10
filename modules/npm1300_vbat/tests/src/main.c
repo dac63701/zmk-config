@@ -74,6 +74,20 @@ ZTEST(npm1300_vbat, test_zero_voltage_with_vbus_never_enters_ship_mode)
                   NPM1300_BATTERY_ACTION_NONE, NULL);
 }
 
+ZTEST(npm1300_vbat, test_implausible_voltage_never_enters_ship_mode_unplugged)
+{
+    struct npm1300_battery_state state = {0};
+
+    for (int i = 0; i < 10; i++) {
+        zassert_equal(npm1300_battery_step(&state, &thresholds, 0, false),
+                      NPM1300_BATTERY_ACTION_NONE, NULL);
+    }
+
+    zassert_false(state.warning_active, NULL);
+    zassert_equal(state.warning_samples, 0, NULL);
+    zassert_equal(state.critical_samples, 0, NULL);
+}
+
 ZTEST(npm1300_vbat, test_vbus_clears_cutoff_without_forcing_load_on)
 {
     struct npm1300_battery_state state = {0};

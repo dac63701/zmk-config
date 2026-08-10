@@ -6,6 +6,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define NPM1300_BATTERY_PLAUSIBLE_MIN_MV 2500
+#define NPM1300_BATTERY_PLAUSIBLE_MAX_MV 5000
+
 struct npm1300_battery_thresholds {
     int32_t warning_mv;
     int32_t ship_mv;
@@ -32,5 +35,7 @@ enum npm1300_battery_action npm1300_battery_step(
     const struct npm1300_battery_thresholds *thresholds,
     int32_t millivolts,
     bool vbus_present);
+
+bool npm1300_battery_voltage_is_plausible(int32_t millivolts);
 
 #endif

@@ -15,6 +15,7 @@
 #include <zephyr/drivers/sensor/npm1300_charger.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/atomic.h>
 
 #include <drivers/ext_power.h>
 #include <nrf_fuel_gauge.h>
@@ -29,11 +30,11 @@ LOG_MODULE_REGISTER(npm1300_vbat, CONFIG_SENSOR_LOG_LEVEL);
 #define NPM1300_SHPHLD_BASE            0x0bU
 #define NPM1300_TASK_ENTER_SHIP_OFFSET 0x02U
 
-/* nPM1300 CHARGER.BCHGCHARGESTATUS bit masks. */
-#define NPM1300_CHG_STATUS_COMPLETE BIT(1)
-#define NPM1300_CHG_STATUS_TRICKLE  BIT(2)
-#define NPM1300_CHG_STATUS_CC       BIT(3)
-#define NPM1300_CHG_STATUS_CV       BIT(4)
+#if defined(CONFIG_FPU_SHARING)
+#define NPM1300_MONITOR_THREAD_OPTIONS K_FP_REGS
+#else
+#define NPM1300_MONITOR_THREAD_OPTIONS 0
+#endif
 
 static const struct battery_model battery_model = {
 #include "battery_model.inc"
@@ -49,25 +50,21 @@ struct npm1300_measurement {
     int32_t millivolts;
     float voltage;
     float current;
-    int32_t charge_status;
     bool vbus_present;
 };
 
 struct npm1300_vbat_data {
     const struct device *dev;
-    struct k_work_delayable monitor_work;
-    struct k_mutex lock;
+    struct k_thread monitor_thread;
+    K_KERNEL_STACK_MEMBER(monitor_stack, CONFIG_ZMK_NPM1300_FUEL_GAUGE_STACK_SIZE);
     struct npm1300_battery_state battery_state;
     int64_t last_fuel_gauge_update_ms;
     int64_t last_protection_update_ms;
     int32_t filtered_mv;
-    int32_t last_charge_status;
-    uint8_t state_of_charge;
+    atomic_t state_of_charge;
+    atomic_t fuel_gauge_valid;
     bool filtered_voltage_valid;
     bool fuel_gauge_initialized;
-    bool fuel_gauge_valid;
-    bool last_vbus_present;
-    bool last_vbus_valid;
 };
 
 static void npm1300_update_filtered_voltage(struct npm1300_vbat_data *data, int32_t millivolts)
@@ -119,18 +116,11 @@ static int npm1300_read_measurement(const struct npm1300_vbat_config *config,
     }
 
     /*
-     * The Zephyr 4.1 nPM1300 driver used by this board reports positive current
+     * The Zephyr 3.5 nPM1300 driver used by this board reports positive current
      * while discharging and negative current while charging. That is the sign
      * convention expected by the matching nRF Fuel Gauge library.
      */
     measurement->current = sensor_value_to_float(&value);
-
-    ret = sensor_channel_get(config->charger, SENSOR_CHAN_NPM1300_CHARGER_STATUS, &value);
-    if (ret != 0) {
-        return ret;
-    }
-
-    measurement->charge_status = value.val1;
 
     bool pmic_vbus_present = false;
     ret = npm1300_vbus_present(config, &pmic_vbus_present);
@@ -175,45 +165,15 @@ static int npm1300_enter_ship_mode(const struct npm1300_vbat_config *config)
                                  NPM1300_TASK_ENTER_SHIP_OFFSET, 1U);
 }
 
-static int npm1300_inform_charge_status(int32_t charge_status)
-{
-    union nrf_fuel_gauge_ext_state_info_data info;
-
-    if ((charge_status & NPM1300_CHG_STATUS_COMPLETE) != 0) {
-        info.charge_state = NRF_FUEL_GAUGE_CHARGE_STATE_COMPLETE;
-    } else if ((charge_status & NPM1300_CHG_STATUS_TRICKLE) != 0) {
-        info.charge_state = NRF_FUEL_GAUGE_CHARGE_STATE_TRICKLE;
-    } else if ((charge_status & NPM1300_CHG_STATUS_CC) != 0) {
-        info.charge_state = NRF_FUEL_GAUGE_CHARGE_STATE_CC;
-    } else if ((charge_status & NPM1300_CHG_STATUS_CV) != 0) {
-        info.charge_state = NRF_FUEL_GAUGE_CHARGE_STATE_CV;
-    } else {
-        info.charge_state = NRF_FUEL_GAUGE_CHARGE_STATE_IDLE;
-    }
-
-    return nrf_fuel_gauge_ext_state_update(NRF_FUEL_GAUGE_EXT_STATE_INFO_CHARGE_STATE_CHANGE,
-                                            &info);
-}
-
-static int npm1300_inform_vbus(bool present)
-{
-    return nrf_fuel_gauge_ext_state_update(
-        present ? NRF_FUEL_GAUGE_EXT_STATE_INFO_VBUS_CONNECTED
-                : NRF_FUEL_GAUGE_EXT_STATE_INFO_VBUS_DISCONNECTED,
-        NULL);
-}
-
 static int npm1300_fuel_gauge_init(struct npm1300_vbat_data *data,
                                    const struct npm1300_measurement *measurement)
 {
-    const struct npm1300_vbat_config *config = data->dev->config;
     const struct nrf_fuel_gauge_init_parameters parameters = {
         .v0 = measurement->voltage,
         .i0 = measurement->current,
         .t0 = (float)CONFIG_ZMK_NPM1300_FUEL_GAUGE_ASSUMED_TEMP_C,
         .model = &battery_model,
         .opt_params = NULL,
-        .state = NULL,
     };
     int ret = nrf_fuel_gauge_init(&parameters, NULL);
 
@@ -222,42 +182,6 @@ static int npm1300_fuel_gauge_init(struct npm1300_vbat_data *data,
         return ret;
     }
 
-    struct sensor_value value;
-    ret = sensor_channel_get(config->charger, SENSOR_CHAN_GAUGE_DESIRED_CHARGING_CURRENT,
-                             &value);
-    if (ret == 0) {
-        float charge_current = sensor_value_to_float(&value);
-        union nrf_fuel_gauge_ext_state_info_data info = {
-            .charge_current_limit = charge_current,
-        };
-
-        ret = nrf_fuel_gauge_ext_state_update(
-            NRF_FUEL_GAUGE_EXT_STATE_INFO_CHARGE_CURRENT_LIMIT, &info);
-        if (ret == 0) {
-            /* The board's charger termination current is configured as 10 percent. */
-            info.charge_term_current = charge_current / 10.0f;
-            ret = nrf_fuel_gauge_ext_state_update(
-                NRF_FUEL_GAUGE_EXT_STATE_INFO_TERM_CURRENT, &info);
-        }
-    }
-
-    if (ret != 0) {
-        LOG_WRN("Could not provide charger current limits to fuel gauge: %d", ret);
-    }
-
-    ret = npm1300_inform_charge_status(measurement->charge_status);
-    if (ret != 0) {
-        LOG_WRN("Could not provide charger state to fuel gauge: %d", ret);
-    }
-
-    ret = npm1300_inform_vbus(measurement->vbus_present);
-    if (ret != 0) {
-        LOG_WRN("Could not provide VBUS state to fuel gauge: %d", ret);
-    }
-
-    data->last_charge_status = measurement->charge_status;
-    data->last_vbus_present = measurement->vbus_present;
-    data->last_vbus_valid = true;
     data->last_fuel_gauge_update_ms = k_uptime_get();
     data->fuel_gauge_initialized = true;
 
@@ -274,27 +198,6 @@ static void npm1300_fuel_gauge_update(struct npm1300_vbat_data *data,
         if (npm1300_fuel_gauge_init(data, measurement) != 0) {
             return;
         }
-    }
-
-    if (!data->last_vbus_valid || data->last_vbus_present != measurement->vbus_present) {
-        int ret = npm1300_inform_vbus(measurement->vbus_present);
-
-        if (ret != 0) {
-            LOG_WRN("Could not update fuel-gauge VBUS state: %d", ret);
-        }
-
-        data->last_vbus_present = measurement->vbus_present;
-        data->last_vbus_valid = true;
-    }
-
-    if (data->last_charge_status != measurement->charge_status) {
-        int ret = npm1300_inform_charge_status(measurement->charge_status);
-
-        if (ret != 0) {
-            LOG_WRN("Could not update fuel-gauge charger state: %d", ret);
-        }
-
-        data->last_charge_status = measurement->charge_status;
     }
 
     float delta_seconds = (float)(now_ms - data->last_fuel_gauge_update_ms) / 1000.0f;
@@ -319,16 +222,23 @@ static void npm1300_fuel_gauge_update(struct npm1300_vbat_data *data,
         soc = 100.0f;
     }
 
-    data->state_of_charge = (uint8_t)(soc + 0.5f);
-    data->fuel_gauge_valid = true;
+    atomic_set(&data->state_of_charge, (atomic_val_t)(soc + 0.5f));
+    atomic_set(&data->fuel_gauge_valid, 1);
     LOG_DBG("Battery: %d mV, SOC %u%%", measurement->millivolts,
-            data->state_of_charge);
+            (uint8_t)atomic_get(&data->state_of_charge));
 }
 
 static bool npm1300_run_voltage_protection(struct npm1300_vbat_data *data,
                                            const struct npm1300_measurement *measurement,
                                            int64_t now_ms)
 {
+    /* A stale first ADC result can be zero. Never turn rails off or enter ship
+     * mode unless the reading is physically plausible for a connected LiPo. */
+    if (!npm1300_battery_voltage_is_plausible(measurement->millivolts)) {
+        LOG_WRN("Ignoring implausible battery reading: %d mV", measurement->millivolts);
+        return true;
+    }
+
     int64_t interval_ms =
         (int64_t)CONFIG_ZMK_NPM1300_MONITOR_INTERVAL_SECONDS * 1000;
 
@@ -368,9 +278,8 @@ static bool npm1300_run_voltage_protection(struct npm1300_vbat_data *data,
         }
         break;
     default:
-        if (data->battery_state.warning_active) {
-            npm1300_disable_nonessential_loads(config);
-        }
+        /* Do not fight the RGB state machine by repeatedly switching its rail
+         * off. Load shedding happens once when the warning threshold crosses. */
         break;
     }
 
@@ -390,38 +299,44 @@ static uint32_t npm1300_next_interval_ms(bool vbus_present)
     return CONFIG_ZMK_NPM1300_FUEL_GAUGE_IDLE_INTERVAL_MS;
 }
 
-static void npm1300_monitor_work(struct k_work *work)
+static void npm1300_monitor_thread(void *arg1, void *arg2, void *arg3)
 {
-    struct k_work_delayable *delayable = k_work_delayable_from_work(work);
-    struct npm1300_vbat_data *data =
-        CONTAINER_OF(delayable, struct npm1300_vbat_data, monitor_work);
+    ARG_UNUSED(arg2);
+    ARG_UNUSED(arg3);
+
+    struct npm1300_vbat_data *data = arg1;
     const struct npm1300_vbat_config *config = data->dev->config;
-    struct npm1300_measurement measurement;
-    k_mutex_lock(&data->lock, K_FOREVER);
-    int ret = npm1300_read_measurement(config, &measurement);
 
-    if (ret == 0) {
-        int64_t now_ms = k_uptime_get();
+    while (true) {
+        struct npm1300_measurement measurement;
+        int ret = npm1300_read_measurement(config, &measurement);
+        uint32_t next_interval_ms;
 
-        npm1300_update_filtered_voltage(data, measurement.millivolts);
-        npm1300_fuel_gauge_update(data, &measurement, now_ms);
+        if (ret == 0) {
+            int64_t now_ms = k_uptime_get();
 
-        if (!npm1300_run_voltage_protection(data, &measurement, now_ms)) {
-            k_mutex_unlock(&data->lock);
-            return;
+            if (!npm1300_battery_voltage_is_plausible(measurement.millivolts)) {
+                LOG_WRN("Ignoring implausible battery reading: %d mV",
+                        measurement.millivolts);
+                next_interval_ms = npm1300_next_interval_ms(measurement.vbus_present);
+                k_msleep(next_interval_ms);
+                continue;
+            }
+
+            npm1300_update_filtered_voltage(data, measurement.millivolts);
+            npm1300_fuel_gauge_update(data, &measurement, now_ms);
+            if (!npm1300_run_voltage_protection(data, &measurement, now_ms)) {
+                return;
+            }
+
+            next_interval_ms = npm1300_next_interval_ms(measurement.vbus_present);
+        } else {
+            LOG_ERR("Failed to monitor battery: %d", ret);
+            next_interval_ms = npm1300_next_interval_ms(zmk_usb_is_powered());
         }
 
-        k_mutex_unlock(&data->lock);
-        k_work_reschedule(&data->monitor_work,
-                          K_MSEC(npm1300_next_interval_ms(measurement.vbus_present)));
-        return;
+        k_msleep(next_interval_ms);
     }
-
-    k_mutex_unlock(&data->lock);
-    LOG_ERR("Failed to monitor battery: %d", ret);
-    k_work_reschedule(
-        &data->monitor_work,
-        K_MSEC(npm1300_next_interval_ms(zmk_usb_is_powered())));
 }
 
 static int npm1300_vbat_sample_fetch(const struct device *dev, enum sensor_channel chan)
@@ -430,23 +345,9 @@ static int npm1300_vbat_sample_fetch(const struct device *dev, enum sensor_chann
     struct npm1300_vbat_data *data = dev->data;
 
     if (chan == SENSOR_CHAN_GAUGE_STATE_OF_CHARGE) {
-        if (data->fuel_gauge_valid) {
-            return 0;
-        }
-
-        /* ZMK requests a value immediately at boot, before delayed work may run. */
-        struct npm1300_measurement measurement;
-        k_mutex_lock(&data->lock, K_FOREVER);
-        int ret = npm1300_read_measurement(config, &measurement);
-
-        if (ret == 0) {
-            npm1300_update_filtered_voltage(data, measurement.millivolts);
-            npm1300_fuel_gauge_update(data, &measurement, k_uptime_get());
-            ret = data->fuel_gauge_valid ? 0 : -EAGAIN;
-        }
-
-        k_mutex_unlock(&data->lock);
-        return ret;
+        /* The gauge is intentionally only run by its dedicated thread. Battery
+         * reporting will retry after the first asynchronous estimate is ready. */
+        return atomic_get(&data->fuel_gauge_valid) ? 0 : -EAGAIN;
     }
 
     if (chan == SENSOR_CHAN_NPM1300_CHARGER_STATUS) {
@@ -475,11 +376,11 @@ static int npm1300_vbat_channel_get(const struct device *dev, enum sensor_channe
     struct npm1300_vbat_data *data = dev->data;
 
     if (chan == SENSOR_CHAN_GAUGE_STATE_OF_CHARGE) {
-        if (!data->fuel_gauge_valid) {
+        if (!atomic_get(&data->fuel_gauge_valid)) {
             return -EAGAIN;
         }
 
-        value->val1 = data->state_of_charge;
+        value->val1 = atomic_get(&data->state_of_charge);
         value->val2 = 0;
         return 0;
     }
@@ -521,11 +422,12 @@ static int npm1300_vbat_init(const struct device *dev)
     }
 
     data->dev = dev;
-    data->last_charge_status = -1;
-    k_mutex_init(&data->lock);
-    k_work_init_delayable(&data->monitor_work, npm1300_monitor_work);
-    /* Allow the first ADC conversion and ZMK settings initialization to complete. */
-    k_work_schedule(&data->monitor_work, K_SECONDS(1));
+    k_tid_t monitor_tid = k_thread_create(
+        &data->monitor_thread, data->monitor_stack,
+        K_KERNEL_STACK_SIZEOF(data->monitor_stack), npm1300_monitor_thread,
+        data, NULL, NULL, K_PRIO_PREEMPT(10), NPM1300_MONITOR_THREAD_OPTIONS,
+        K_SECONDS(2));
+    k_thread_name_set(monitor_tid, "npm1300_vbat");
     return 0;
 }
 

@@ -17,18 +17,23 @@ config ZMK_NPM1300_INIT_PRIORITY
 
 config ZMK_NPM1300_WARNING_MV
 	int "Voltage at which nonessential loads are disabled"
-	default 3500
+	default 3300
 	range 2800 4200
 
 config ZMK_NPM1300_SHIP_MV
 	int "Voltage at which ship mode is entered"
-	default 3200
+	default 3000
 	range 2800 4200
 
 config ZMK_NPM1300_RECOVERY_MV
 	int "Voltage required to clear the low-battery warning"
-	default 3600
+	default 3400
 	range 2800 4200
+
+config ZMK_NPM1300_FUEL_GAUGE_STACK_SIZE
+	int "Dedicated fuel-gauge thread stack size"
+	default 4096
+	range 2048 8192
 
 config ZMK_NPM1300_MONITOR_INTERVAL_SECONDS
 	int "Raw-voltage protection polling interval"

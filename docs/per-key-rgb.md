@@ -16,12 +16,14 @@ the `EXT_POWER` LED rail control.
 Low-battery protection uses raw cell voltage rather than the modeled Windows
 percentage:
 
-- At or below 3.50 V for three consecutive five-second samples, the RGB rail
+- At or below 3.30 V for three consecutive five-second samples, the RGB rail
   is disabled.
-- At or above 3.60 V, the low-battery veto clears.
-- At or below 3.20 V for three consecutive samples, the nPM1300 enters ship
+- At or above 3.40 V, the low-battery veto clears.
+- At or below 3.00 V for three consecutive samples, the nPM1300 enters ship
   mode.
 - USB power bypasses both the RGB cutoff and ship-mode entry.
+- Measurements outside the physically plausible 2.50-5.00 V range are ignored
+  and can never switch off the RGB rail or enter ship mode.
 
 Battery reporting uses Nordic's nRF Fuel Gauge algorithm on the nRF52840 with
 the supplied LP602760 1000 mAh, 4.20 V rechargeable-cell model. The nPM1300
@@ -34,7 +36,10 @@ The pack and PCB have no cell thermistor, so the algorithm uses the model's
 22 C profile. It updates every 2 seconds while active on battery, every 10
 seconds while idle, every 500 ms on USB/while charging, and not during system
 off/deep sleep. Raw-voltage protection remains on its independent five-second
-schedule regardless of the fuel-gauge update rate.
+schedule regardless of the fuel-gauge update rate. The algorithm runs in a
+dedicated low-priority thread with its own stack, so it cannot block ZMK's
+keyboard and RGB system work queue. ZMK battery reads only consume the latest
+completed estimate and never execute the algorithm synchronously.
 
 RGB settings changed with the Fn-layer controls are persisted by ZMK and can
 override the compiled startup brightness. Clear settings or use Fn+Y/Fn+U to
@@ -45,10 +50,10 @@ runtime LED-rail power, the temporary Fn overlay, and idle suspension. Entering
 Fn or idle no longer overwrites the saved user choice. A USB connection is
 treated as activity and reasserts the rail only when RGB is meant to be on.
 
-The battery monitor may disable the rail below its unplugged warning threshold,
-but it never enables the rail. This prevents it from fighting RGB toggle and
-idle decisions; on USB it clears the battery veto and lets the RGB driver own
-the handoff.
+The battery monitor may disable the rail once when the unplugged warning
+threshold is crossed, but it never repeatedly forces the rail off or enables
+it. This prevents it from fighting RGB toggle and idle decisions; on USB it
+clears the battery veto and lets the RGB driver own the handoff.
 
 ## Fn layer
 

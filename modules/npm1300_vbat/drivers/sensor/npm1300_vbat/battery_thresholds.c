@@ -2,6 +2,12 @@
 
 #include "battery_thresholds.h"
 
+bool npm1300_battery_voltage_is_plausible(int32_t millivolts)
+{
+    return millivolts >= NPM1300_BATTERY_PLAUSIBLE_MIN_MV &&
+           millivolts <= NPM1300_BATTERY_PLAUSIBLE_MAX_MV;
+}
+
 enum npm1300_battery_action npm1300_battery_step(
     struct npm1300_battery_state *state,
     const struct npm1300_battery_thresholds *thresholds,
@@ -13,6 +19,12 @@ enum npm1300_battery_action npm1300_battery_step(
     /* USB owns the handoff; the RGB driver is the only component that enables its rail. */
     if (vbus_present) {
         state->warning_active = false;
+        state->warning_samples = 0;
+        state->critical_samples = 0;
+        return NPM1300_BATTERY_ACTION_NONE;
+    }
+
+    if (!npm1300_battery_voltage_is_plausible(millivolts)) {
         state->warning_samples = 0;
         state->critical_samples = 0;
         return NPM1300_BATTERY_ACTION_NONE;
