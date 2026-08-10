@@ -47,6 +47,7 @@ jobs:
           git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-live-layer-controls.patch"
           git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-layer-authority.patch"
           git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-charge-indicator.patch"
+          git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-power-sequence.patch"
           west zephyr-export
 
       - name: Build firmware

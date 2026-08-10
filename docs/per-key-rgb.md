@@ -50,6 +50,13 @@ runtime LED-rail power, the temporary Fn overlay, and idle suspension. Entering
 Fn or idle no longer overwrites the saved user choice. A USB connection is
 treated as activity and reasserts the rail only when RGB is meant to be on.
 
+RGB power transitions are serialized. Turning lighting off stops frame
+generation, writes and latches an all-black frame, and only then disables the
+LED rail. Turning it on enables the rail, waits 5 ms for it to stabilize,
+latches a black reset frame, and then paints the requested animation or Fn
+map. Animation work checks the runtime state both before rendering and before
+transmission, so a queued stale frame cannot relight pixels after shutdown.
+
 The battery monitor may disable the rail once when the unplugged warning
 threshold is crossed, but it never repeatedly forces the rail off or enables
 it. This prevents it from fighting RGB toggle and idle decisions; on USB it
