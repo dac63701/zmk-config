@@ -1,0 +1,103 @@
+diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
+--- a/app/src/rgb_underglow.c
++++ b/app/src/rgb_underglow.c
+@@ -58,7 +58,8 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup);
+ #define HUE_MAX 360
+ #define SAT_MAX 100
+ #define BRT_MAX 100
+-#define ANIMATION_TICK_MS 25
++#define HUE_PHASE_SCALE 10
++#define ANIMATION_TICK_MS 20
+ 
+ BUILD_ASSERT(CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN <= CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
+              "ERROR: RGB underglow maximum brightness is less than minimum brightness");
+@@ -177,7 +178,7 @@ static void zmk_rgb_underglow_effect_breathe(void) {
+         pixels[i] = hsb_to_rgb(hsb_scale_zero_max(hsb));
+     }
+ 
+-    state.animation_step += state.animation_speed * 5;
++    state.animation_step += state.animation_speed * 4;
+ 
+     if (state.animation_step > 2400) {
+         state.animation_step = 0;
+@@ -187,56 +188,51 @@ static void zmk_rgb_underglow_effect_spectrum(void) {
+     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+         struct zmk_led_hsb hsb = state.color;
+-        pixels[i] = hsb_to_rgb_hue(hsb_scale_min_max(hsb), state.animation_step / 2.0f);
++        pixels[i] = hsb_to_rgb_hue(hsb_scale_min_max(hsb),
++                                   state.animation_step / (float)HUE_PHASE_SCALE);
+     }
+ 
+-    state.animation_step += state.animation_speed;
+-    state.animation_step = state.animation_step % (HUE_MAX * 2);
++    state.animation_step = (state.animation_step + state.animation_speed * 4) %
++                           (HUE_MAX * HUE_PHASE_SCALE);
+ }
+ 
+ static void zmk_rgb_underglow_effect_swirl(void) {
+     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+         struct zmk_led_hsb hsb = state.color;
+-        float hue = ((float)HUE_MAX * i) / STRIP_NUM_PIXELS + state.animation_step / 2.0f;
++        float hue = ((float)HUE_MAX * i) / STRIP_NUM_PIXELS +
++                    state.animation_step / (float)HUE_PHASE_SCALE;
+         pixels[i] = hsb_to_rgb_hue(hsb_scale_min_max(hsb), hue);
+     }
+ 
+-    state.animation_step += state.animation_speed * 2;
+-    state.animation_step = state.animation_step % (HUE_MAX * 2);
++    state.animation_step = (state.animation_step + state.animation_speed * 8) %
++                           (HUE_MAX * HUE_PHASE_SCALE);
+ }
+ 
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+ static float zmk_rgb_underglow_horizontal_hue(int led) {
+     int key = rgb_pixel_lookup(led);
+-    int column;
+-    int columns;
+-
+-    if (key < 14) {
+-        column = key;
+-        columns = 14;
+-    } else if (key < 28) {
+-        column = key - 14;
+-        columns = 14;
+-    } else if (key < 41) {
+-        column = key - 28;
+-        columns = 13;
+-    } else if (key < 53) {
+-        column = key - 41;
+-        columns = 12;
+-    } else {
+-        column = key - 53;
+-        columns = 8;
+-    }
+-
+-    return ((float)HUE_MAX * column) / columns;
++    static const uint8_t key_center_eighths[] = {
++        4,  12, 20, 28, 36, 44, 52, 60, 68, 76, 84, 92, 100, 112,
++        6,  16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 114,
++        7,  18, 26, 34, 42, 50, 58, 66, 74, 82, 90, 98, 111,
++        9,  22, 30, 38, 46, 54, 62, 70, 78, 86, 94, 109,
++        5,  15, 25, 55, 85, 95, 105, 115,
++    };
++
++    BUILD_ASSERT(ARRAY_SIZE(key_center_eighths) == STRIP_NUM_PIXELS,
++                 "Horizontal RGB position map must have one entry per LED");
++
++    return ((float)HUE_MAX * key_center_eighths[key]) / 120.0f;
+ }
+ 
+ static void zmk_rgb_underglow_effect_horizontal_rainbow(void) {
+     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+         struct zmk_led_hsb hsb = state.color;
+-        float hue = zmk_rgb_underglow_horizontal_hue(i) + state.animation_step / 2.0f;
++        float hue = zmk_rgb_underglow_horizontal_hue(i) +
++                    state.animation_step / (float)HUE_PHASE_SCALE;
+         pixels[i] = hsb_to_rgb_hue(hsb_scale_min_max(hsb), hue);
+     }
+ 
+-    state.animation_step = (state.animation_step + state.animation_speed) % (HUE_MAX * 2);
++    state.animation_step = (state.animation_step + state.animation_speed * 4) %
++                           (HUE_MAX * HUE_PHASE_SCALE);
+ }
+ #endif // IS_ENABLED(UNDERGLOW_LAYER_ENABLED)

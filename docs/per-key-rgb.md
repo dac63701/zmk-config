@@ -71,7 +71,10 @@ Fn action and releasing Fn must immediately restore the normal effect.
 the `underglow_layer` node. Build-time patches add single-piece keyboard layer
 events and make the map an automatic overlay. The fifth effect is a horizontal
 rainbow: every physical row travels left-to-right instead of following the
-serpentine LED wiring. The startup speed is 1 for smoother hue transitions.
+serpentine LED wiring. The startup speed is 1. The animation updates every
+20 ms (50 Hz), uses tenth-degree phase steps, and positions each LED at the
+physical center of its key across the 15u board. Wide keys therefore create
+proportionally larger spatial gaps instead of being treated as 1u keys.
 
 ## ZMK Studio
 
