@@ -76,3 +76,4 @@ index c1d2965..5041aa3 100644
  #endif
  }
  #endif /* DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT) */
+\ No newline at end of file
