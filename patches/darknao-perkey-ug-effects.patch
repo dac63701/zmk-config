@@ -1,0 +1,189 @@
+diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
+--- a/app/src/rgb_underglow.c
++++ b/app/src/rgb_underglow.c
+@@ -67,7 +67,7 @@ enum rgb_underglow_effect {
+     UNDERGLOW_EFFECT_SPECTRUM,
+     UNDERGLOW_EFFECT_SWIRL,
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-    UNDERGLOW_EFFECT_LAYER_INDICATORS,
++    UNDERGLOW_EFFECT_HORIZONTAL_RAINBOW,
+ #endif
+     UNDERGLOW_EFFECT_NUMBER // Used to track number of underglow effects
+ };
+@@ -87,6 +87,10 @@ static struct led_rgb pixels[STRIP_NUM_PIXELS];
+ 
+ static struct rgb_underglow_state state;
+ 
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++static bool layer_woke_rgb;
++#endif
++
+ #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
+ static const struct device *const ext_power = DEVICE_DT_GET(DT_INST(0, zmk_ext_power_generic));
+ #endif
+@@ -187,7 +191,7 @@ static void zmk_rgb_underglow_effect_spectrum(void) {
+ static void zmk_rgb_underglow_effect_swirl(void) {
+     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+         struct zmk_led_hsb hsb = state.color;
+-        hsb.h = (HUE_MAX / STRIP_NUM_PIXELS * i + state.animation_step) % HUE_MAX;
++        hsb.h = ((HUE_MAX * i) / STRIP_NUM_PIXELS + state.animation_step) % HUE_MAX;
+ 
+         pixels[i] = hsb_to_rgb(hsb_scale_min_max(hsb));
+     }
+@@ -197,25 +201,49 @@ static void zmk_rgb_underglow_effect_swirl(void) {
+ }
+ 
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-static void zmk_rgb_underglow_effect_layer(void) {
+-    bool active = false;
+-    for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+-        pixels[i].r -= state.animation_speed < pixels[i].r ? state.animation_speed : pixels[i].r;
+-        pixels[i].g -= state.animation_speed < pixels[i].g ? state.animation_speed : pixels[i].g;
+-        pixels[i].b -= state.animation_speed < pixels[i].b ? state.animation_speed : pixels[i].b;
+-        if (pixels[i].r || pixels[i].g || pixels[i].b) {
+-            active = true;
+-        }
++static uint16_t zmk_rgb_underglow_horizontal_hue(int led) {
++    int key = rgb_pixel_lookup(led);
++    int column;
++    int columns;
++
++    if (key < 14) {
++        column = key;
++        columns = 14;
++    } else if (key < 28) {
++        column = key - 14;
++        columns = 14;
++    } else if (key < 41) {
++        column = key - 28;
++        columns = 13;
++    } else if (key < 53) {
++        column = key - 41;
++        columns = 12;
++    } else {
++        column = key - 53;
++        columns = 8;
+     }
+-    state.animation_step += state.animation_speed;
+ 
+-    if (state.animation_step > 255 || !active) {
+-        zmk_rgb_underglow_transient_off();
++    return (HUE_MAX * column) / columns;
++}
++
++static void zmk_rgb_underglow_effect_horizontal_rainbow(void) {
++    for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
++        struct zmk_led_hsb hsb = state.color;
++        hsb.h = (zmk_rgb_underglow_horizontal_hue(i) + state.animation_step) % HUE_MAX;
++        pixels[i] = hsb_to_rgb(hsb_scale_min_max(hsb));
+     }
++
++    state.animation_step = (state.animation_step + state.animation_speed) % HUE_MAX;
+ }
+ #endif // IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+ 
+ static void zmk_rgb_underglow_tick(struct k_work *work) {
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    if (state.layer_enabled) {
++        return;
++    }
++#endif
++
+     switch (state.current_effect) {
+     case UNDERGLOW_EFFECT_SOLID:
+         zmk_rgb_underglow_effect_solid();
+@@ -230,8 +258,8 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
+         zmk_rgb_underglow_effect_swirl();
+         break;
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-    case UNDERGLOW_EFFECT_LAYER_INDICATORS:
+-        zmk_rgb_underglow_effect_layer();
++    case UNDERGLOW_EFFECT_HORIZONTAL_RAINBOW:
++        zmk_rgb_underglow_effect_horizontal_rainbow();
+         break;
+ #endif
+     }
+@@ -346,17 +374,12 @@ int zmk_rgb_underglow_get_state(bool *on_off) {
+     if (!led_strip)
+         return -ENODEV;
+ 
+-    *on_off = state.on || state.layer_enabled;
++    *on_off = state.on;
+     return 0;
+ }
+ 
+ int zmk_rgb_underglow_on(void) {
+     zmk_rgb_underglow_transient_on();
+-#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-    if (state.current_effect == UNDERGLOW_EFFECT_LAYER_INDICATORS) {
+-        state.layer_enabled = true;
+-    }
+-#endif
+     return zmk_rgb_underglow_save_state();
+ }
+ 
+@@ -432,7 +455,9 @@ int zmk_rgb_underglow_select_effect(int effect) {
+     state.current_effect = effect;
+     state.animation_step = 0;
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-    state.layer_enabled = (effect == UNDERGLOW_EFFECT_LAYER_INDICATORS);
++    if (state.layer_enabled) {
++        zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
++    }
+ #endif
+     return zmk_rgb_underglow_save_state();
+ }
+@@ -494,32 +519,32 @@ static int zmk_rgb_underglow_apply_rgbmap(const struct zmk_behavior_binding *bin
+ 
+ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
+     LOG_DBG("state.layer: %d state.on: %d", state.layer_enabled, state.on);
+-    if (!state.layer_enabled)
+-        return;
+-
+     const struct zmk_behavior_binding *rgbmap = rgb_underglow_get_bindings(layer);
+     if (rgbmap != NULL && zmk_rgb_underglow_apply_rgbmap(rgbmap, ZMK_KEYMAP_LEN, layer)) {
++        state.layer_enabled = true;
+         if (!state.on) {
+             if (!wakeup) {
+                 LOG_DBG("rgb off and no wakeup, abort refresh");
+                 return;
+             }
++            layer_woke_rgb = true;
+             zmk_rgb_underglow_transient_on();
+         }
+         k_timer_stop(&underglow_tick);
+-        state.animation_step = 0;
+-        int fade_delay = zmk_rgbmap_fade_delay(layer);
+-        if (fade_delay >= 0) {
+-            k_timer_start(&underglow_tick, K_SECONDS(fade_delay), K_MSEC(50));
+-        }
+         LOG_DBG("write pixels");
+         int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
+         if (err < 0) {
+             LOG_ERR("Failed to update the RGB strip (%d)", err);
+         }
+     } else {
+-        if (state.on)
++        bool was_layer_enabled = state.layer_enabled;
++        state.layer_enabled = false;
++        if (was_layer_enabled && layer_woke_rgb) {
++            layer_woke_rgb = false;
+             zmk_rgb_underglow_transient_off();
++        } else if (was_layer_enabled && state.on) {
++            k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
++        }
+     }
+ }
+ #endif /* IS_ENABLED(UNDERGLOW_LAYER_ENABLED) */
+diff --git a/app/Kconfig b/app/Kconfig
+--- a/app/Kconfig
++++ b/app/Kconfig
+@@ -317,7 +317,7 @@ config ZMK_RGB_UNDERGLOW_SPD_START
+ 
+ config ZMK_RGB_UNDERGLOW_EFF_START
+     int "RGB underglow start effect int value related to the effect enum list"
+-    range 0 3
++    range 0 4
+ 
+ config ZMK_RGB_UNDERGLOW_ON_START
+     bool "RGB underglow starts on by default"

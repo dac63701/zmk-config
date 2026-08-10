@@ -19,8 +19,8 @@ return to the intended range during testing.
 
 ## Fn layer
 
-When the layer-map RGB effect is selected, holding the Fn (`MO(1)`) key shows
-the color legend:
+Holding the Fn (`MO(1)`) key automatically pauses the current animation and
+shows the color legend. Releasing Fn resumes the same animation:
 
 - Cyan: Bluetooth profile controls
 - Blue: navigation
@@ -45,10 +45,9 @@ Additional RGB controls are placed on previously transparent Fn bindings:
 
 ## Required physical verification
 
-`pixel-lookup` is currently the explicit row-major assumption: LED 0 is Esc,
-then the keymap proceeds left-to-right through each row to LED 60 (Right Ctrl).
-The electrical chain is not documented in this repository, so this is the only
-part that cannot be proved from source files.
+`pixel-lookup` compensates for the PCB's alternating row direction, mapping
+the serpentine electrical chain into left-to-right logical rows. LED 0 is Esc
+and the second and fourth rows are reversed in the lookup table.
 
 Before treating the map as final, use a diagnostic build to identify LED 0,
 1, and 2 and update `pixel-lookup` if the chain snakes across rows. For each
@@ -59,12 +58,10 @@ Fn action and releasing Fn must immediately restore the normal effect.
 ## Current fork behavior
 
 `CONFIG_EXPERIMENTAL_RGB_LAYER=y` is required for the pinned fork to process
-the `underglow_layer` node. The repository also applies a small, pinned patch
-at build time so this split-oriented fork receives normal layer events on this
-single-piece keyboard. Its built-in per-layer map is an RGB *effect*: cycle
-effects with Fn+X until the map effect is selected, then hold Fn to show the
-legend. The fork does not draw the legend as an overlay over a normal rainbow
-or restore an animation on release.
+the `underglow_layer` node. Build-time patches add single-piece keyboard layer
+events and make the map an automatic overlay. The fifth effect is a horizontal
+rainbow: every physical row travels left-to-right instead of following the
+serpentine LED wiring. The startup speed is 1 for smoother hue transitions.
 
 ## ZMK Studio
 
