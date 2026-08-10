@@ -59,11 +59,12 @@ Fn action and releasing Fn must immediately restore the normal effect.
 ## Current fork behavior
 
 `CONFIG_EXPERIMENTAL_RGB_LAYER=y` is required for the pinned fork to process
-the `underglow_layer` node. Its built-in per-layer map is an RGB *effect*:
-cycle effects with Fn+X until the map effect is selected, then hold Fn to show
-the legend. The fork does not yet draw the legend as an overlay over a normal
-rainbow or restore an animation on release. That final behavior requires a
-small patch to the fork's RGB renderer.
+the `underglow_layer` node. The repository also applies a small, pinned patch
+at build time so this split-oriented fork receives normal layer events on this
+single-piece keyboard. Its built-in per-layer map is an RGB *effect*: cycle
+effects with Fn+X until the map effect is selected, then hold Fn to show the
+legend. The fork does not draw the legend as an overlay over a normal rainbow
+or restore an animation on release.
 
 ## ZMK Studio
 

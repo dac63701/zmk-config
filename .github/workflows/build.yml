@@ -1,6 +1,56 @@
 name: Build ZMK firmware
+
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
+  matrix:
+    runs-on: ubuntu-22.04
+    outputs:
+      build_matrix: ${{ steps.matrix.outputs.build_matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: matrix
+        run: echo "build_matrix=$(yq -oj -I0 build.yaml)" >> "$GITHUB_OUTPUT"
+
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@edf5c0814fd3ea202e43aad2d68fd32e882a518c
+    runs-on: ubuntu-latest
+    container:
+      image: zmkfirmware/zmk-build-arm:stable
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.build_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare workspace
+        shell: bash
+        run: |
+          echo "build_dir=$(mktemp -d)" >> "$GITHUB_ENV"
+          echo "base_dir=${TMPDIR:-/tmp}/zmk-config" >> "$GITHUB_ENV"
+
+      - name: Initialize ZMK workspace
+        shell: bash
+        run: |
+          mkdir -p "$base_dir/config"
+          cp -R config/. "$base_dir/config/"
+          cd "$base_dir"
+          west init -l "$base_dir/config"
+          west update --fetch-opt=--filter=tree:0
+          git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-single-board.patch"
+          west zephyr-export
+
+      - name: Build firmware
+        shell: bash -x {0}
+        run: |
+          cd "$base_dir"
+          west build -s zmk/app -d "$build_dir" -b "${{ matrix.board }}" -S "${{ matrix.snippet }}" -- \
+            -DZMK_CONFIG="$base_dir/config" \
+            -DZMK_EXTRA_MODULES="$GITHUB_WORKSPACE" \
+            ${{ matrix.cmake-args }}
+
+      - name: Archive firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ env.build_dir }}/zephyr/zmk.uf2

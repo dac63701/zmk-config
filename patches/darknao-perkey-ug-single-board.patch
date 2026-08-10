@@ -1,0 +1,78 @@
+diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
+index bd5947e..ca13458 100644
+--- a/app/src/rgb_underglow.c
++++ b/app/src/rgb_underglow.c
+@@ -30,11 +30,12 @@
+ #include <zmk/events/activity_state_changed.h>
+ #include <zmk/events/usb_conn_state_changed.h>
+ #include <zmk/events/underglow_color_changed.h>
++#include <zmk/events/layer_state_changed.h>
+ 
+ #include <zmk/workqueue.h>
+ #include <zmk/events/split_peripheral_layer_changed.h>
+ 
+-#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
++#if IS_ENABLED(CONFIG_ZMK_SPLIT) && !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+ #include <zmk/split/peripheral_layers.h>
+ #endif
+ 
+@@ -656,6 +657,7 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
+ #endif
+ 
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++#if IS_ENABLED(CONFIG_ZMK_SPLIT)
+     if (as_zmk_split_peripheral_layer_changed(eh)) {
+         const struct zmk_split_peripheral_layer_changed *ev =
+             as_zmk_split_peripheral_layer_changed(eh);
+@@ -668,6 +670,12 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
+         zmk_rgb_underglow_set_layer(layer, true);
+         return 0;
+     }
++#else
++    if (as_zmk_layer_state_changed(eh)) {
++        zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
++        return 0;
++    }
++#endif
+     if (as_zmk_underglow_color_changed(eh)) {
+         const struct zmk_underglow_color_changed *ev = as_zmk_underglow_color_changed(eh);
+         uint8_t layer = rgb_underglow_top_layer();
+@@ -702,7 +710,11 @@ ZMK_SUBSCRIPTION(rgb_underglow, zmk_usb_conn_state_changed);
+ #endif
+ 
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++#if IS_ENABLED(CONFIG_ZMK_SPLIT)
+ ZMK_SUBSCRIPTION(rgb_underglow, zmk_split_peripheral_layer_changed);
++#else
++ZMK_SUBSCRIPTION(rgb_underglow, zmk_layer_state_changed);
++#endif
+ ZMK_SUBSCRIPTION(rgb_underglow, zmk_underglow_color_changed);
+ #endif
+ 
+diff --git a/app/src/rgb_underglow_layer.c b/app/src/rgb_underglow_layer.c
+index c1d2965..5041aa3 100644
+--- a/app/src/rgb_underglow_layer.c
++++ b/app/src/rgb_underglow_layer.c
+@@ -15,7 +15,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+ #include <zmk/keymap.h>
+ #include <zmk/rgb_underglow_layer.h>
+ 
+-#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
++#if IS_ENABLED(CONFIG_ZMK_SPLIT) && !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+ #include <zmk/split/peripheral_layers.h>
+ #endif
+ 
+@@ -75,10 +75,10 @@ uint8_t rgb_underglow_top_layer_with_state(uint32_t state_to_test) {
+ }
+ 
+ uint8_t rgb_underglow_top_layer(void) {
+-#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+-    return zmk_keymap_highest_layer_active();
+-#else
++#if IS_ENABLED(CONFIG_ZMK_SPLIT) && !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+     return peripheral_highest_layer_active();
++#else
++    return zmk_keymap_highest_layer_active();
+ #endif
+ }
+ #endif /* DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT) */
