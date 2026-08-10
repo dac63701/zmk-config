@@ -137,6 +137,9 @@ static void npm1300_monitor_work(struct k_work *work)
                 npm1300_disable_nonessential_loads(config);
                 break;
             case NPM1300_BATTERY_ACTION_ENABLE_LOAD:
+                if (vbus_present) {
+                    LOG_DBG("VBUS present; enabling nonessential loads");
+                }
                 npm1300_enable_nonessential_loads(config);
                 break;
             case NPM1300_BATTERY_ACTION_ENTER_SHIP:
