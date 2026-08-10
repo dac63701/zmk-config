@@ -2,6 +2,8 @@ manifest:
   remotes:
     - name: darknao
       url-base: https://github.com/darknao
+    - name: nrfconnect
+      url-base: https://github.com/nrfconnect
   projects:
     - name: zmk
       # darknao/zmk-perkey_ug, pinned after syntax and compatibility review.
@@ -10,5 +12,11 @@ manifest:
       remote: darknao
       revision: 453d2d8536106c1b5ba2ae68d6a2267965c16935
       import: app/west.yml
+    - name: nrfxlib
+      remote: nrfconnect
+      repo-path: sdk-nrfxlib
+      path: nrfxlib
+      # nRF Connect SDK 3.1.1 companion revision for Zephyr 4.1.
+      revision: 3b210a24d3bc7ecfc268e0feab6436306b11e7cb
   self:
     path: config

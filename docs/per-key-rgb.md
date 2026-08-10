@@ -13,20 +13,28 @@ the `EXT_POWER` LED rail control.
 - Idle on USB: RGB remains active for five minutes before switching off.
 - USB: RGB remains available.
 
-Low-battery protection uses raw cell voltage rather than the filtered Windows
+Low-battery protection uses raw cell voltage rather than the modeled Windows
 percentage:
 
-- At or below 3.50 V for three consecutive five-second samples (about 7% on
-  ZMK's voltage curve), the RGB rail is disabled.
-- At or above 3.60 V (about 21%), the low-battery veto clears.
+- At or below 3.50 V for three consecutive five-second samples, the RGB rail
+  is disabled.
+- At or above 3.60 V, the low-battery veto clears.
 - At or below 3.20 V for three consecutive samples, the nPM1300 enters ship
-  mode. ZMK reports 0% for any voltage at or below 3.45 V.
+  mode.
 - USB power bypasses both the RGB cutoff and ship-mode entry.
 
-Battery reporting uses a five-second exponential moving average. This reduces
-percentage jumps caused by RGB load sag and the higher terminal voltage seen
-while charging; it remains a voltage estimate rather than a fuel-gauge
-measurement.
+Battery reporting uses Nordic's nRF Fuel Gauge algorithm on the nRF52840 with
+the supplied LP602760 1000 mAh, 4.20 V rechargeable-cell model. The nPM1300
+provides voltage and bidirectional current measurements, and ZMK reports the
+model's state of charge directly rather than converting voltage linearly. This
+is an interim model for the similarly sized MakerFocus 1100 mAh pack; its
+coefficients are kept unchanged.
+
+The pack and PCB have no cell thermistor, so the algorithm uses the model's
+22 C profile. It updates every 2 seconds while active on battery, every 10
+seconds while idle, every 500 ms on USB/while charging, and not during system
+off/deep sleep. Raw-voltage protection remains on its independent five-second
+schedule regardless of the fuel-gauge update rate.
 
 RGB settings changed with the Fn-layer controls are persisted by ZMK and can
 override the compiled startup brightness. Clear settings or use Fn+Y/Fn+U to

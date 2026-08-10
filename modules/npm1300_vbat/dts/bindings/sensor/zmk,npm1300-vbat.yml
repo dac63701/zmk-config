@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-description: nPM1300 low-voltage protection and ZMK battery sensor adapter
+description: nPM1300 host fuel gauge, low-voltage protection, and ZMK battery adapter
 
 compatible: "zmk,npm1300-vbat"
 

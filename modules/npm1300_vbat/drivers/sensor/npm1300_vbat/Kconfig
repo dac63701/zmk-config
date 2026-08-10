@@ -6,8 +6,8 @@ config ZMK_NPM1300_VBAT
 	depends on DT_HAS_ZMK_NPM1300_VBAT_ENABLED
 	select I2C
 	help
-	  Adapt the nPM1300 charger's gauge-voltage channel for ZMK battery
-	  reporting and protect the cell with an independent low-voltage monitor.
+	  Run Nordic's host-side fuel gauge for ZMK state-of-charge reporting and
+	  protect the cell with an independent raw-voltage monitor.
 
 if ZMK_NPM1300_VBAT
 
@@ -31,9 +31,29 @@ config ZMK_NPM1300_RECOVERY_MV
 	range 2800 4200
 
 config ZMK_NPM1300_MONITOR_INTERVAL_SECONDS
-	int "Battery protection polling interval"
+	int "Raw-voltage protection polling interval"
 	default 5
 	range 1 300
+
+config ZMK_NPM1300_FUEL_GAUGE_ACTIVE_INTERVAL_MS
+	int "Fuel-gauge interval while active on battery"
+	default 2000
+	range 250 60000
+
+config ZMK_NPM1300_FUEL_GAUGE_IDLE_INTERVAL_MS
+	int "Fuel-gauge interval while idle on battery"
+	default 10000
+	range 250 300000
+
+config ZMK_NPM1300_FUEL_GAUGE_CHARGING_INTERVAL_MS
+	int "Fuel-gauge interval while externally powered"
+	default 500
+	range 250 60000
+
+config ZMK_NPM1300_FUEL_GAUGE_ASSUMED_TEMP_C
+	int "Assumed cell temperature when no thermistor is fitted"
+	default 22
+	range -20 60
 
 config ZMK_NPM1300_WARNING_CONFIRM_SAMPLES
 	int "Consecutive low-voltage samples required to disable nonessential loads"
