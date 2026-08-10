@@ -39,6 +39,23 @@ ZTEST(npm1300_vbat, test_ship_confirmation_and_vbus_deferral)
                   NPM1300_BATTERY_ACTION_ENTER_SHIP, NULL);
 }
 
+ZTEST(npm1300_vbat, test_zero_voltage_with_vbus_never_enters_ship_mode)
+{
+    struct npm1300_battery_state state = {0};
+
+    /*
+     * A protected pack can present 0 V at its output after its UVP FETs open.
+     * With USB attached, keep the PMIC active so its VBATLOW/trickle-charge
+     * path can wake the protection circuit; ship mode would be counterproductive.
+     */
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 0, true),
+                  NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 0, true),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_true(state.warning_active, NULL);
+    zassert_equal(state.critical_samples, thresholds.ship_confirm_samples, NULL);
+}
+
 ZTEST(npm1300_vbat, test_voltage_above_ship_resets_confirmation)
 {
     struct npm1300_battery_state state = {0};
