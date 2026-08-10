@@ -56,6 +56,9 @@ Additional RGB controls are placed on previously transparent Fn bindings:
 Brightness and saturation changes repaint the active Fn RGB map immediately.
 Hue, speed, and effect controls target the underlying animation, which becomes
 visible when Fn is released; the Fn legend keeps its configured key colors.
+The renderer rechecks the actual top keymap layer before animation frames and
+during USB/activity wake transitions, so the Fn map remains authoritative while
+Fn is held on either battery or USB power.
 
 ## Required physical verification
 

@@ -1,0 +1,31 @@
+diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
+--- a/app/src/rgb_underglow.c
++++ b/app/src/rgb_underglow.c
+@@ -246,6 +246,7 @@ static void zmk_rgb_underglow_effect_horizontal_rainbow(void) {
+ 
+ static void zmk_rgb_underglow_tick(struct k_work *work) {
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
+     if (layer_active) {
+         return;
+     }
+@@ -661,8 +662,8 @@ static int rgb_underglow_auto_state(bool target_wake_state) {
+     auto_suspended = !target_wake_state;
+     if (target_wake_state) {
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++        zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
+         if (layer_active) {
+-            zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
+             return 0;
+         }
+ #endif
+@@ -720,8 +721,8 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
+         if (zmk_usb_is_powered()) {
+             auto_suspended = false;
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++            zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
+             if (layer_active) {
+-                zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
+                 return 0;
+             }
+ #endif
