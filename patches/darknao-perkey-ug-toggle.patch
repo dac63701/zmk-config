@@ -1,21 +1,64 @@
 diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
 --- a/app/src/rgb_underglow.c
 +++ b/app/src/rgb_underglow.c
-@@ -468,6 +468,13 @@ int zmk_rgb_underglow_cycle_effect(int direction) {
+@@ -79,6 +79,7 @@ struct rgb_underglow_state {
+     uint16_t animation_step;
+     bool on;
+     bool layer_enabled;
++    uint8_t settings_format;
+ };
+
+ static const struct device *led_strip;
+@@ -337,7 +338,8 @@ static int zmk_rgb_underglow_init(void) {
+         animation_speed : CONFIG_ZMK_RGB_UNDERGLOW_SPD_START,
+         current_effect : CONFIG_ZMK_RGB_UNDERGLOW_EFF_START,
+         animation_step : 0,
+-        on : IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_ON_START)
++        on : IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_ON_START),
++        settings_format : 1
+     };
+
+ #if IS_ENABLED(CONFIG_SETTINGS)
+@@ -379,6 +381,12 @@ int zmk_rgb_underglow_get_state(bool *on_off) {
  }
- 
+
+ int zmk_rgb_underglow_on(void) {
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    if (state.layer_enabled) {
++        layer_woke_rgb = false;
++        return 0;
++    }
++#endif
+     zmk_rgb_underglow_transient_on();
+     return zmk_rgb_underglow_save_state();
+ }
+@@ -421,6 +429,12 @@ K_WORK_DEFINE(underglow_off_work, zmk_rgb_underglow_off_handler);
+
+ int zmk_rgb_underglow_off(void) {
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    if (state.layer_enabled) {
++        layer_woke_rgb = true;
++        return 0;
++    }
++#endif
+     zmk_rgb_underglow_transient_off();
+     state.layer_enabled = false;
+     return zmk_rgb_underglow_save_state();
+ }
+@@ -468,6 +482,12 @@ int zmk_rgb_underglow_cycle_effect(int direction) {
+ }
+
  int zmk_rgb_underglow_toggle(void) {
 +#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
 +    if (state.layer_enabled) {
-+        /* Keep the Fn legend visible and apply the toggle when Fn is released. */
 +        layer_woke_rgb = !layer_woke_rgb;
 +        return 0;
 +    }
 +#endif
      return state.on ? zmk_rgb_underglow_off() : zmk_rgb_underglow_on();
  }
- 
-@@ -548,6 +555,9 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
+
+@@ -548,6 +569,9 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
          } else if (was_layer_enabled && state.on) {
              k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
          }

@@ -1,0 +1,144 @@
+diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
+index 55e7c1e..a03fcf0 100644
+--- a/app/src/rgb_underglow.c
++++ b/app/src/rgb_underglow.c
+@@ -58,6 +58,7 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup);
+ #define HUE_MAX 360
+ #define SAT_MAX 100
+ #define BRT_MAX 100
++#define ANIMATION_TICK_MS 25
+ 
+ BUILD_ASSERT(CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN <= CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
+              "ERROR: RGB underglow maximum brightness is less than minimum brightness");
+@@ -108,13 +109,14 @@ static struct zmk_led_hsb hsb_scale_zero_max(struct zmk_led_hsb hsb) {
+     return hsb;
+ }
+ 
+-static struct led_rgb hsb_to_rgb(struct zmk_led_hsb hsb) {
++static struct led_rgb hsb_to_rgb_hue(struct zmk_led_hsb hsb, float hue) {
+     float r = 0, g = 0, b = 0;
+ 
+-    uint8_t i = hsb.h / 60;
++    hue = fmodf(hue, (float)HUE_MAX);
++    uint8_t i = hue / 60.0f;
+     float v = hsb.b / ((float)BRT_MAX);
+     float s = hsb.s / ((float)SAT_MAX);
+-    float f = hsb.h / ((float)HUE_MAX) * 6 - i;
++    float f = hue / 60.0f - i;
+     float p = v * (1 - s);
+     float q = v * (1 - f * s);
+     float t = v * (1 - (1 - f) * s);
+@@ -157,6 +159,10 @@ static struct led_rgb hsb_to_rgb(struct zmk_led_hsb hsb) {
+     return rgb;
+ }
+ 
++static struct led_rgb hsb_to_rgb(struct zmk_led_hsb hsb) {
++    return hsb_to_rgb_hue(hsb, (float)hsb.h);
++}
++
+ static void zmk_rgb_underglow_effect_solid(void) {
+     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+         pixels[i] = hsb_to_rgb(hsb_scale_min_max(state.color));
+@@ -171,7 +177,7 @@ static void zmk_rgb_underglow_effect_breathe(void) {
+         pixels[i] = hsb_to_rgb(hsb_scale_zero_max(hsb));
+     }
+ 
+-    state.animation_step += state.animation_speed * 10;
++    state.animation_step += state.animation_speed * 5;
+ 
+     if (state.animation_step > 2400) {
+         state.animation_step = 0;
+@@ -181,29 +187,26 @@ static void zmk_rgb_underglow_effect_breathe(void) {
+ static void zmk_rgb_underglow_effect_spectrum(void) {
+     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+         struct zmk_led_hsb hsb = state.color;
+-        hsb.h = state.animation_step;
+-
+-        pixels[i] = hsb_to_rgb(hsb_scale_min_max(hsb));
++        pixels[i] = hsb_to_rgb_hue(hsb_scale_min_max(hsb), state.animation_step / 2.0f);
+     }
+ 
+     state.animation_step += state.animation_speed;
+-    state.animation_step = state.animation_step % HUE_MAX;
++    state.animation_step = state.animation_step % (HUE_MAX * 2);
+ }
+ 
+ static void zmk_rgb_underglow_effect_swirl(void) {
+     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+         struct zmk_led_hsb hsb = state.color;
+-        hsb.h = ((HUE_MAX * i) / STRIP_NUM_PIXELS + state.animation_step) % HUE_MAX;
+-
+-        pixels[i] = hsb_to_rgb(hsb_scale_min_max(hsb));
++        float hue = ((float)HUE_MAX * i) / STRIP_NUM_PIXELS + state.animation_step / 2.0f;
++        pixels[i] = hsb_to_rgb_hue(hsb_scale_min_max(hsb), hue);
+     }
+ 
+     state.animation_step += state.animation_speed * 2;
+-    state.animation_step = state.animation_step % HUE_MAX;
++    state.animation_step = state.animation_step % (HUE_MAX * 2);
+ }
+ 
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-static uint16_t zmk_rgb_underglow_horizontal_hue(int led) {
++static float zmk_rgb_underglow_horizontal_hue(int led) {
+     int key = rgb_pixel_lookup(led);
+     int column;
+     int columns;
+@@ -225,17 +228,17 @@ static uint16_t zmk_rgb_underglow_horizontal_hue(int led) {
+         columns = 8;
+     }
+ 
+-    return (HUE_MAX * column) / columns;
++    return ((float)HUE_MAX * column) / columns;
+ }
+ 
+ static void zmk_rgb_underglow_effect_horizontal_rainbow(void) {
+     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+         struct zmk_led_hsb hsb = state.color;
+-        hsb.h = (zmk_rgb_underglow_horizontal_hue(i) + state.animation_step) % HUE_MAX;
+-        pixels[i] = hsb_to_rgb(hsb_scale_min_max(hsb));
++        float hue = zmk_rgb_underglow_horizontal_hue(i) + state.animation_step / 2.0f;
++        pixels[i] = hsb_to_rgb_hue(hsb_scale_min_max(hsb), hue);
+     }
+ 
+-    state.animation_step = (state.animation_step + state.animation_speed) % HUE_MAX;
++    state.animation_step = (state.animation_step + state.animation_speed) % (HUE_MAX * 2);
+ }
+ #endif // IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+ 
+@@ -297,7 +300,7 @@ static int rgb_settings_set(const char *name, size_t len, settings_read_cb read_
+         rc = read_cb(cb_arg, &state, sizeof(state));
+         if (rc >= 0) {
+             if (state.on) {
+-                k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
++                k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
+             }
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+             if (state.layer_enabled) {
+@@ -354,7 +357,7 @@ static int zmk_rgb_underglow_init(void) {
+ #endif
+ 
+     if (state.on) {
+-        k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
++        k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
+     }
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+     if (state.layer_enabled) {
+@@ -407,7 +410,7 @@ int zmk_rgb_underglow_transient_on(void) {
+ 
+     state.on = true;
+     state.animation_step = 0;
+-    k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
++    k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
+ 
+     return 0;
+ }
+@@ -564,7 +567,7 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
+             layer_woke_rgb = false;
+             zmk_rgb_underglow_transient_off();
+         } else if (was_layer_enabled && state.on) {
+-            k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
++            k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
+         }
+         if (was_layer_enabled) {
+             zmk_rgb_underglow_save_state();

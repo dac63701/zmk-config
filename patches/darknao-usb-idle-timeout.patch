@@ -1,0 +1,28 @@
+diff --git a/app/Kconfig b/app/Kconfig
+--- a/app/Kconfig
++++ b/app/Kconfig
+@@ -393,6 +393,11 @@ config ZMK_IDLE_TIMEOUT
+     int "Milliseconds of inactivity before entering idle state (OLED shutoff, etc)"
+     default 30000
+ 
++config ZMK_USB_IDLE_TIMEOUT
++    int "Milliseconds of inactivity before entering idle state while USB powered"
++    default 300000
++    depends on USB_DEVICE_STACK
++
+ config ZMK_SLEEP
+     bool "Enable deep sleep support"
+     depends on HAS_POWEROFF
+diff --git a/app/src/activity.c b/app/src/activity.c
+--- a/app/src/activity.c
++++ b/app/src/activity.c
+@@ -43,7 +43,8 @@ static enum zmk_activity_state activity_state;
+ 
+ static uint32_t activity_last_uptime;
+ 
+-#define MAX_IDLE_MS CONFIG_ZMK_IDLE_TIMEOUT
++#define MAX_IDLE_MS                                                                    \
++    (is_usb_power_present() ? CONFIG_ZMK_USB_IDLE_TIMEOUT : CONFIG_ZMK_IDLE_TIMEOUT)
+ 
+ #if IS_ENABLED(CONFIG_ZMK_SLEEP)
+ #define MAX_SLEEP_MS CONFIG_ZMK_IDLE_SLEEP_TIMEOUT

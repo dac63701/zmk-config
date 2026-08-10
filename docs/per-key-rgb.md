@@ -9,8 +9,8 @@ the `EXT_POWER` LED rail control.
 - Startup brightness: 15%
 - Hard maximum: 20%
 - Brightness step: 5%
-- Idle: RGB is switched off and the configured external LED power integration
-  is allowed to remove LED rail power.
+- Idle on battery: RGB switches off after 30 seconds.
+- Idle on USB: RGB remains active for five minutes before switching off.
 - USB: RGB remains available.
 
 RGB settings changed with the Fn-layer controls are persisted by ZMK and can
