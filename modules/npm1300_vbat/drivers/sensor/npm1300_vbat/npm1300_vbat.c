@@ -70,11 +70,6 @@ struct npm1300_vbat_data {
     bool last_vbus_valid;
 };
 
-static float sensor_value_to_float(const struct sensor_value *value)
-{
-    return (float)value->val1 + ((float)value->val2 / 1000000.0f);
-}
-
 static void npm1300_update_filtered_voltage(struct npm1300_vbat_data *data, int32_t millivolts)
 {
     if (!data->filtered_voltage_valid) {
