@@ -10,6 +10,7 @@
     keymap {
         compatible = "zmk,keymap";
         default_layer {
+            display-name = "Base";
             // ------------------------------------------------------------------------------------------
             // | ESC |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |  9  |  0  |  -  |  =  |   BSPC   |
             // | TAB  |  Q  |  W  |  E  |  R  |  T  |  Y  |  U  |  I  |  O  |  P  |  [  |  ]  |   "|"   |
@@ -26,6 +27,7 @@
             >;
         };
         rgb_layer {
+            display-name = "Fn";
             // ------------------------------------------------------------------------------------------------
             // | BT CLR | F1  | F2  | F3  | F4  | F5  | F6  | F7  | F8  | F9  | F10  | F11 | F12 |        |
             // |  BT 1   |   |  UP |   | PGUP | BRI | BRD | SPI | SPD | SAI | HUI | HUD | SAD |            PP
@@ -37,7 +39,7 @@
                 &bt BT_CLR    &kp F1    &kp F2    &kp F3    &kp F4  &kp F5  &kp F6  &kp F7      &kp F8      &kp F9       &kp F10      &kp F11     &kp F12  &trans
                 &bt BT_SEL 0  &trans    &kp UP    &trans    &kp PG_UP  &rgb_ug RGB_BRI &rgb_ug RGB_BRD &rgb_ug RGB_SPI &rgb_ug RGB_SPD &rgb_ug RGB_SAI &rgb_ug RGB_HUI &rgb_ug RGB_HUD &rgb_ug RGB_SAD &kp C_PP
                 &bt BT_SEL 1  &kp LEFT  &kp DOWN  &kp RIGHT &kp PG_DN  &trans  &trans  &trans      &trans      &trans     &trans       &trans            &trans
-                &bt BT_SEL 2  &rgb_ug RGB_EFR &rgb_ug RGB_EFF &trans    &trans  &trans  &kp C_VOL_DN  &kp C_VOL_UP  &kp C_PREV  &kp C_NEXT  &trans                        &trans
+                &bt BT_SEL 2  &rgb_ug RGB_EFR &rgb_ug RGB_EFF &trans    &trans  &trans  &kp C_VOL_DN  &kp C_VOL_UP  &kp C_PREV  &kp C_NEXT  &trans                        &studio_unlock
                 &bt BT_SEL 3  &trans    &trans                            &rgb_ug RGB_TOG                         &kp C_MUTE   &kp PSCRN      &trans    &kp DEL
             >;
         };
@@ -65,7 +67,7 @@
                 &ug RED    &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ORANGE &ug ___
                 &ug CYAN   &ug ___    &ug BLUE   &ug ___    &ug BLUE   &ug GREEN  &ug GREEN  &ug GREEN  &ug GREEN  &ug GREEN  &ug GREEN  &ug GREEN  &ug GREEN  &ug PURPLE
                 &ug CYAN   &ug BLUE   &ug BLUE   &ug BLUE   &ug BLUE   &ug ___    &ug ___    &ug ___    &ug ___    &ug ___    &ug ___    &ug ___    &ug ___
-                &ug CYAN   &ug GREEN  &ug GREEN  &ug ___    &ug ___    &ug ___    &ug MAGENTA &ug MAGENTA &ug PURPLE &ug PURPLE &ug ___    &ug ___
+                &ug CYAN   &ug GREEN  &ug GREEN  &ug ___    &ug ___    &ug ___    &ug MAGENTA &ug MAGENTA &ug PURPLE &ug PURPLE &ug ___    &ug GREEN
                 &ug CYAN   &ug ___    &ug ___    &ug GREEN  &ug MAGENTA &ug ORANGE &ug WHITE  &ug ORANGE
             >;
         };

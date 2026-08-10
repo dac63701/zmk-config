@@ -10,3 +10,7 @@
 include:
   - board: 60wkeyboard/nrf52840/zmk
     artifact-name: 60wkeyboard
+    # ZMK Studio uses a USB CDC/ACM RPC endpoint. The keymap's Fn+Right Shift
+    # binding explicitly unlocks the endpoint before Studio can make changes.
+    snippet: studio-rpc-usb-uart
+    cmake-args: -DCONFIG_ZMK_STUDIO=y

@@ -19,7 +19,8 @@ return to the intended range during testing.
 
 ## Fn layer
 
-Holding Fn (Right GUI) replaces the active RGB effect with the color legend:
+When the layer-map RGB effect is selected, holding the Fn (`MO(1)`) key shows
+the color legend:
 
 - Cyan: Bluetooth profile controls
 - Blue: navigation
@@ -40,6 +41,7 @@ Additional RGB controls are placed on previously transparent Fn bindings:
 | Fn+P / Fn+[ | hue up / down |
 | Fn+Z / Fn+X | previous / next effect |
 | Fn+Space | RGB toggle |
+| Fn+Right Shift | unlock ZMK Studio |
 
 ## Required physical verification
 
@@ -53,3 +55,19 @@ Before treating the map as final, use a diagnostic build to identify LED 0,
 LED index, record the physical key, matrix position, and approximate X/Y
 coordinates. Test the whole Fn layer afterward: each lit key must match its
 Fn action and releasing Fn must immediately restore the normal effect.
+
+## Current fork behavior
+
+`CONFIG_EXPERIMENTAL_RGB_LAYER=y` is required for the pinned fork to process
+the `underglow_layer` node. Its built-in per-layer map is an RGB *effect*:
+cycle effects with Fn+X until the map effect is selected, then hold Fn to show
+the legend. The fork does not yet draw the legend as an overlay over a normal
+rainbow or restore an animation on release. That final behavior requires a
+small patch to the fork's RGB renderer.
+
+## ZMK Studio
+
+The build enables ZMK Studio's USB RPC endpoint. Connect the flashed keyboard
+over USB, hold Fn and press Right Shift to unlock it, then open ZMK Studio.
+Studio can edit the runtime keymap; the RGB lookup table, color legend, and
+custom RGB effects remain firmware configuration and require a rebuild.
