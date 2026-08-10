@@ -10,15 +10,11 @@ enum npm1300_battery_action npm1300_battery_step(
 {
     enum npm1300_battery_action action = NPM1300_BATTERY_ACTION_NONE;
 
-    /*
-     * USB can supply the nonessential rail even when the cell is depleted.
-     * Enforce that policy on every sample so plugging in also recovers a rail
-     * that was previously disabled by the battery-only warning path.
-     */
+    /* USB owns the handoff; the RGB driver is the only component that enables its rail. */
     if (vbus_present) {
         state->warning_active = false;
         state->critical_samples = 0;
-        return NPM1300_BATTERY_ACTION_ENABLE_LOAD;
+        return NPM1300_BATTERY_ACTION_NONE;
     }
 
     if (millivolts <= thresholds->warning_mv) {

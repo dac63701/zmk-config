@@ -1,0 +1,360 @@
+diff --git a/app/src/activity.c b/app/src/activity.c
+index 497f6c2..4f43f40 100644
+--- a/app/src/activity.c
++++ b/app/src/activity.c
+@@ -25,6 +25,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+ 
+ #if IS_ENABLED(CONFIG_USB_DEVICE_STACK)
+ #include <zmk/usb.h>
++#include <zmk/events/usb_conn_state_changed.h>
+ #endif
+ 
+ #if IS_ENABLED(CONFIG_ZMK_POINTING)
+@@ -111,6 +112,9 @@ static int activity_init(void) {
+ ZMK_LISTENER(activity, activity_event_listener);
+ ZMK_SUBSCRIPTION(activity, zmk_position_state_changed);
+ ZMK_SUBSCRIPTION(activity, zmk_sensor_event);
++#if IS_ENABLED(CONFIG_USB_DEVICE_STACK)
++ZMK_SUBSCRIPTION(activity, zmk_usb_conn_state_changed);
++#endif
+ #if IS_ENABLED(CONFIG_ZMK_SPLIT)
+ ZMK_SUBSCRIPTION(activity, zmk_split_peripheral_layer_changed);
+ #endif
+diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
+index a03fcf0..5179899 100644
+--- a/app/src/rgb_underglow.c
++++ b/app/src/rgb_underglow.c
+@@ -80,7 +80,6 @@ struct rgb_underglow_state {
+     uint8_t current_effect;
+     uint16_t animation_step;
+     bool on;
+-    bool layer_enabled;
+     uint8_t settings_format;
+ };
+ 
+@@ -91,8 +90,10 @@ static struct led_rgb pixels[STRIP_NUM_PIXELS];
+ static struct rgb_underglow_state state;
+ 
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-static bool layer_woke_rgb;
++static bool layer_active;
+ #endif
++static bool runtime_on;
++static bool auto_suspended;
+ 
+ #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
+ static const struct device *const ext_power = DEVICE_DT_GET(DT_INST(0, zmk_ext_power_generic));
+@@ -244,7 +245,7 @@ static void zmk_rgb_underglow_effect_horizontal_rainbow(void) {
+ 
+ static void zmk_rgb_underglow_tick(struct k_work *work) {
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-    if (state.layer_enabled) {
++    if (layer_active) {
+         return;
+     }
+ #endif
+@@ -278,7 +279,7 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
+ K_WORK_DEFINE(underglow_tick_work, zmk_rgb_underglow_tick);
+ 
+ static void zmk_rgb_underglow_tick_handler(struct k_timer *timer) {
+-    if (!state.on) {
++    if (!runtime_on) {
+         return;
+     }
+ 
+@@ -300,13 +301,10 @@ static int rgb_settings_set(const char *name, size_t len, settings_read_cb read_
+         rc = read_cb(cb_arg, &state, sizeof(state));
+         if (rc >= 0) {
+             if (state.on) {
+-                k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
+-            }
+-#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-            if (state.layer_enabled) {
+-                zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
++                zmk_rgb_underglow_transient_on();
++            } else {
++                zmk_rgb_underglow_transient_off();
+             }
+-#endif
+             return 0;
+         }
+ 
+@@ -345,7 +343,7 @@ static int zmk_rgb_underglow_init(void) {
+         current_effect : CONFIG_ZMK_RGB_UNDERGLOW_EFF_START,
+         animation_step : 0,
+         on : IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_ON_START),
+-        settings_format : 1
++        settings_format : 2
+     };
+ 
+ #if IS_ENABLED(CONFIG_SETTINGS)
+@@ -357,13 +355,8 @@ static int zmk_rgb_underglow_init(void) {
+ #endif
+ 
+     if (state.on) {
+-        k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
++        zmk_rgb_underglow_transient_on();
+     }
+-#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-    if (state.layer_enabled) {
+-        zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
+-    }
+-#endif
+     return 0;
+ }
+ 
+@@ -385,13 +378,16 @@ int zmk_rgb_underglow_get_state(bool *on_off) {
+ }
+ 
+ int zmk_rgb_underglow_on(void) {
++    state.on = true;
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-    if (state.layer_enabled) {
+-        layer_woke_rgb = false;
+-        return 0;
++    if (!layer_active && !auto_suspended) {
++        zmk_rgb_underglow_transient_on();
++    }
++#else
++    if (!auto_suspended) {
++        zmk_rgb_underglow_transient_on();
+     }
+ #endif
+-    zmk_rgb_underglow_transient_on();
+     return zmk_rgb_underglow_save_state();
+ }
+ 
+@@ -408,32 +404,50 @@ int zmk_rgb_underglow_transient_on(void) {
+     }
+ #endif
+ 
+-    state.on = true;
+-    state.animation_step = 0;
++    runtime_on = true;
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    if (!layer_active) {
++        k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
++    }
++#else
+     k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
++#endif
+ 
+     return 0;
+ }
+ 
+ static void zmk_rgb_underglow_off_handler(struct k_work *work) {
++    if (runtime_on) {
++        return;
++    }
++
+     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+         pixels[i] = (struct led_rgb){r : 0, g : 0, b : 0};
+     }
+ 
+     led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
++
++#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
++    if (ext_power != NULL) {
++        int rc = ext_power_disable(ext_power);
++        if (rc != 0) {
++            LOG_ERR("Unable to disable EXT_POWER: %d", rc);
++        }
++    }
++#endif
+ }
+ 
+ K_WORK_DEFINE(underglow_off_work, zmk_rgb_underglow_off_handler);
+ 
+ int zmk_rgb_underglow_off(void) {
++    state.on = false;
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-    if (state.layer_enabled) {
+-        layer_woke_rgb = true;
+-        return 0;
++    if (!layer_active) {
++        zmk_rgb_underglow_transient_off();
+     }
+-#endif
++#else
+     zmk_rgb_underglow_transient_off();
+-    state.layer_enabled = false;
++#endif
+     return zmk_rgb_underglow_save_state();
+ }
+ 
+@@ -441,19 +455,9 @@ int zmk_rgb_underglow_transient_off(void) {
+     if (!led_strip)
+         return -ENODEV;
+ 
+-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
+-    if (ext_power != NULL) {
+-        int rc = ext_power_disable(ext_power);
+-        if (rc != 0) {
+-            LOG_ERR("Unable to disable EXT_POWER: %d", rc);
+-        }
+-    }
+-#endif
+-
+-    k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_off_work);
+-
+     k_timer_stop(&underglow_tick);
+-    state.on = false;
++    runtime_on = false;
++    k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_off_work);
+ 
+     return 0;
+ }
+@@ -473,7 +477,7 @@ int zmk_rgb_underglow_select_effect(int effect) {
+     state.current_effect = effect;
+     state.animation_step = 0;
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-    if (state.layer_enabled) {
++    if (layer_active) {
+         zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
+     }
+ #endif
+@@ -485,12 +489,6 @@ int zmk_rgb_underglow_cycle_effect(int direction) {
+ }
+ 
+ int zmk_rgb_underglow_toggle(void) {
+-#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-    if (state.layer_enabled) {
+-        layer_woke_rgb = !layer_woke_rgb;
+-        return 0;
+-    }
+-#endif
+     return state.on ? zmk_rgb_underglow_off() : zmk_rgb_underglow_on();
+ }
+ 
+@@ -542,16 +540,13 @@ static int zmk_rgb_underglow_apply_rgbmap(const struct zmk_behavior_binding *bin
+ }
+ 
+ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
+-    LOG_DBG("state.layer: %d state.on: %d", state.layer_enabled, state.on);
++    ARG_UNUSED(wakeup);
++    LOG_DBG("layer.active: %d desired.on: %d runtime.on: %d", layer_active, state.on,
++            runtime_on);
+     const struct zmk_behavior_binding *rgbmap = rgb_underglow_get_bindings(layer);
+     if (rgbmap != NULL && zmk_rgb_underglow_apply_rgbmap(rgbmap, ZMK_KEYMAP_LEN, layer)) {
+-        state.layer_enabled = true;
+-        if (!state.on) {
+-            if (!wakeup) {
+-                LOG_DBG("rgb off and no wakeup, abort refresh");
+-                return;
+-            }
+-            layer_woke_rgb = true;
++        layer_active = true;
++        if (!runtime_on) {
+             zmk_rgb_underglow_transient_on();
+         }
+         k_timer_stop(&underglow_tick);
+@@ -561,16 +556,14 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
+             LOG_ERR("Failed to update the RGB strip (%d)", err);
+         }
+     } else {
+-        bool was_layer_enabled = state.layer_enabled;
+-        state.layer_enabled = false;
+-        if (was_layer_enabled && layer_woke_rgb) {
+-            layer_woke_rgb = false;
+-            zmk_rgb_underglow_transient_off();
+-        } else if (was_layer_enabled && state.on) {
+-            k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
+-        }
+-        if (was_layer_enabled) {
+-            zmk_rgb_underglow_save_state();
++        bool was_layer_active = layer_active;
++        layer_active = false;
++        if (was_layer_active) {
++            if (state.on && !auto_suspended) {
++                zmk_rgb_underglow_transient_on();
++            } else {
++                zmk_rgb_underglow_transient_off();
++            }
+         }
+     }
+ }
+@@ -663,40 +656,22 @@ int zmk_rgb_underglow_change_spd(int direction) {
+ }
+ 
+ #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_IDLE) ||                                          \
+-    IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB) || IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-struct rgb_underglow_sleep_state {
+-    bool is_awake;
+-    bool rgb_state_before_sleeping;
+-};
+-
++    IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB) ||                                           \
++    IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER) || IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+ static int rgb_underglow_auto_state(bool target_wake_state) {
+-    static struct rgb_underglow_sleep_state sleep_state = {
+-        is_awake : true,
+-        rgb_state_before_sleeping : false
+-    };
+-
+-    // wake up event while awake, or sleep event while sleeping -> no-op
+-    if (target_wake_state == sleep_state.is_awake) {
+-        return 0;
+-    }
+-    sleep_state.is_awake = target_wake_state;
+-
+-    if (sleep_state.is_awake) {
++    auto_suspended = !target_wake_state;
++    if (target_wake_state) {
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+-        if (state.layer_enabled) {
++        if (layer_active) {
+             zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
+             return 0;
+         }
+ #endif
+-        if (sleep_state.rgb_state_before_sleeping) {
+-            return zmk_rgb_underglow_transient_on();
+-        } else {
+-            return zmk_rgb_underglow_transient_off();
+-        }
+-    } else {
+-        sleep_state.rgb_state_before_sleeping = state.on;
+-        return zmk_rgb_underglow_transient_off();
++        return state.on ? zmk_rgb_underglow_transient_on()
++                        : zmk_rgb_underglow_transient_off();
+     }
++
++    return zmk_rgb_underglow_transient_off();
+ }
+ 
+ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
+@@ -738,11 +713,23 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
+     }
+ #endif /* UNDERGLOW_LAYER_ENABLED */
+ 
+-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)
+     if (as_zmk_usb_conn_state_changed(eh)) {
++#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)
+         return rgb_underglow_auto_state(zmk_usb_is_powered());
+-    }
++#elif IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
++        if (zmk_usb_is_powered()) {
++            auto_suspended = false;
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++            if (layer_active) {
++                zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
++                return 0;
++            }
+ #endif
++            return state.on ? zmk_rgb_underglow_transient_on() : 0;
++        }
++#endif
++        return 0;
++    }
+ 
+     return -ENOTSUP;
+ }
+@@ -756,6 +743,7 @@ ZMK_LISTENER(rgb_underglow, rgb_underglow_event_listener);
+ ZMK_SUBSCRIPTION(rgb_underglow, zmk_activity_state_changed);
+ #endif
+ 
+-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)
++#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB) ||                                    \
++    IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
+ ZMK_SUBSCRIPTION(rgb_underglow, zmk_usb_conn_state_changed);
+ #endif

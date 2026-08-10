@@ -71,17 +71,6 @@ static void npm1300_disable_nonessential_loads(const struct npm1300_vbat_config 
     }
 }
 
-static void npm1300_enable_nonessential_loads(const struct npm1300_vbat_config *config)
-{
-    if (config->load_switch.port != NULL && device_is_ready(config->load_switch.port)) {
-        int ret = gpio_pin_set_dt(&config->load_switch, 1);
-
-        if (ret != 0) {
-            LOG_ERR("Failed to restore nonessential load: %d", ret);
-        }
-    }
-}
-
 static int npm1300_enter_ship_mode(const struct npm1300_vbat_config *config)
 {
     bool vbus_present;
@@ -137,10 +126,8 @@ static void npm1300_monitor_work(struct k_work *work)
                 npm1300_disable_nonessential_loads(config);
                 break;
             case NPM1300_BATTERY_ACTION_ENABLE_LOAD:
-                if (vbus_present) {
-                    LOG_DBG("VBUS present; enabling nonessential loads");
-                }
-                npm1300_enable_nonessential_loads(config);
+                /* The RGB driver owns rail enablement; recovery only removes the veto. */
+                LOG_INF("Battery recovered: %d mV; nonessential loads may resume", millivolts);
                 break;
             case NPM1300_BATTERY_ACTION_ENTER_SHIP:
                 ret = npm1300_enter_ship_mode(config);

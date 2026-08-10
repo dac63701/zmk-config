@@ -17,6 +17,16 @@ RGB settings changed with the Fn-layer controls are persisted by ZMK and can
 override the compiled startup brightness. Clear settings or use Fn+Y/Fn+U to
 return to the intended range during testing.
 
+The renderer keeps four states separate: the persisted user on/off choice,
+runtime LED-rail power, the temporary Fn overlay, and idle suspension. Entering
+Fn or idle no longer overwrites the saved user choice. A USB connection is
+treated as activity and reasserts the rail only when RGB is meant to be on.
+
+The battery monitor may disable the rail below its unplugged warning threshold,
+but it never enables the rail. This prevents it from fighting RGB toggle and
+idle decisions; on USB it clears the battery veto and lets the RGB driver own
+the handoff.
+
 ## Fn layer
 
 Holding the Fn (`MO(1)`) key automatically pauses the current animation and
