@@ -53,6 +53,10 @@ Additional RGB controls are placed on previously transparent Fn bindings:
 | Fn+Space | RGB toggle |
 | Fn+Right Shift | unlock ZMK Studio |
 
+Brightness and saturation changes repaint the active Fn RGB map immediately.
+Hue, speed, and effect controls target the underlying animation, which becomes
+visible when Fn is released; the Fn legend keeps its configured key colors.
+
 ## Required physical verification
 
 `pixel-lookup` is row-major: LED 0 is Esc and the lookup proceeds left-to-right

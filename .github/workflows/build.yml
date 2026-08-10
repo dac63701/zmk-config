@@ -44,6 +44,7 @@ jobs:
           git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-usb-idle-timeout.patch"
           git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-state-machine.patch"
           git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-physical-smooth.patch"
+          git -C zmk apply "$GITHUB_WORKSPACE/patches/darknao-perkey-ug-live-layer-controls.patch"
           west zephyr-export
 
       - name: Build firmware

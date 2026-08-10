@@ -1,0 +1,69 @@
+diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
+--- a/app/src/rgb_underglow.c
++++ b/app/src/rgb_underglow.c
+@@ -495,11 +495,15 @@ int zmk_rgb_underglow_toggle(void) {
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+ 
+ static struct led_rgb hex_to_rgb(uint8_t r, uint8_t g, uint8_t b) {
+-    struct zmk_led_hsb hsb = state.color;
++    uint8_t max = MAX(r, MAX(g, b));
++    uint8_t saturated_r = max - ((max - r) * state.color.s) / SAT_MAX;
++    uint8_t saturated_g = max - ((max - g) * state.color.s) / SAT_MAX;
++    uint8_t saturated_b = max - ((max - b) * state.color.s) / SAT_MAX;
++
+     return (struct led_rgb){
+-        r : (hsb.b * (r)) / 0xff,
+-        g : (hsb.b * (g)) / 0xff,
+-        b : (hsb.b * (b)) / 0xff
++        r : (state.color.b * saturated_r) / 0xff,
++        g : (state.color.b * saturated_g) / 0xff,
++        b : (state.color.b * saturated_b) / 0xff
+     };
+ }
+ 
+@@ -567,6 +572,12 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
+         }
+     }
+ }
++
++static void zmk_rgb_underglow_refresh_active_layer(void) {
++    if (layer_active) {
++        zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
++    }
++}
+ #endif /* IS_ENABLED(UNDERGLOW_LAYER_ENABLED) */
+ 
+ int zmk_rgb_underglow_set_hsb(struct zmk_led_hsb color) {
+@@ -575,6 +586,10 @@ int zmk_rgb_underglow_set_hsb(struct zmk_led_hsb color) {
+ 
+     state.color = color;
+ 
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    zmk_rgb_underglow_refresh_active_layer();
++#endif
++
+     return 0;
+ }
+ 
+@@ -625,6 +640,10 @@ int zmk_rgb_underglow_change_sat(int direction) {
+ 
+     state.color = zmk_rgb_underglow_calc_sat(direction);
+ 
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    zmk_rgb_underglow_refresh_active_layer();
++#endif
++
+     return zmk_rgb_underglow_save_state();
+ }
+ 
+@@ -634,6 +653,10 @@ int zmk_rgb_underglow_change_brt(int direction) {
+ 
+     state.color = zmk_rgb_underglow_calc_brt(direction);
+ 
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    zmk_rgb_underglow_refresh_active_layer();
++#endif
++
+     return zmk_rgb_underglow_save_state();
+ }
+ 
