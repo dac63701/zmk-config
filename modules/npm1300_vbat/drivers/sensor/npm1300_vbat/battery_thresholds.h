@@ -10,10 +10,12 @@ struct npm1300_battery_thresholds {
     int32_t warning_mv;
     int32_t ship_mv;
     int32_t recovery_mv;
+    uint8_t warning_confirm_samples;
     uint8_t ship_confirm_samples;
 };
 
 struct npm1300_battery_state {
+    uint8_t warning_samples;
     uint8_t critical_samples;
     bool warning_active;
 };

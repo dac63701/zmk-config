@@ -6,6 +6,7 @@ static const struct npm1300_battery_thresholds thresholds = {
     .warning_mv = 3500,
     .ship_mv = 3200,
     .recovery_mv = 3600,
+    .warning_confirm_samples = 3,
     .ship_confirm_samples = 3,
 };
 
@@ -14,10 +15,13 @@ ZTEST(npm1300_vbat, test_warning_and_recovery_hysteresis)
     struct npm1300_battery_state state = {0};
 
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3500, false),
-                  NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
-    zassert_true(state.warning_active, NULL);
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3499, false),
                   NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_false(state.warning_active, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3499, false),
+                  NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
+    zassert_true(state.warning_active, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3599, false),
                   NPM1300_BATTERY_ACTION_NONE, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3600, false),
@@ -30,7 +34,7 @@ ZTEST(npm1300_vbat, test_ship_confirmation_and_vbus_deferral)
     struct npm1300_battery_state state = {0};
 
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3200, false),
-                  NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3199, true),
                   NPM1300_BATTERY_ACTION_NONE, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3199, true),
@@ -40,7 +44,7 @@ ZTEST(npm1300_vbat, test_ship_confirmation_and_vbus_deferral)
 
     /* Unplugging restarts both load shedding and ship-mode confirmation. */
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3199, false),
-                  NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3199, false),
                   NPM1300_BATTERY_ACTION_NONE, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3199, false),
@@ -75,6 +79,10 @@ ZTEST(npm1300_vbat, test_vbus_clears_cutoff_without_forcing_load_on)
     struct npm1300_battery_state state = {0};
 
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3400, false),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3400, false),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 3400, false),
                   NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
     zassert_true(state.warning_active, NULL);
 
@@ -89,12 +97,12 @@ ZTEST(npm1300_vbat, test_voltage_above_ship_resets_confirmation)
     struct npm1300_battery_state state = {0};
 
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3100, false),
-                  NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3250, false),
                   NPM1300_BATTERY_ACTION_NONE, NULL);
     zassert_equal(state.critical_samples, 0, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3200, false),
-                  NPM1300_BATTERY_ACTION_NONE, NULL);
+                  NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3200, false),
                   NPM1300_BATTERY_ACTION_NONE, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 3200, false),

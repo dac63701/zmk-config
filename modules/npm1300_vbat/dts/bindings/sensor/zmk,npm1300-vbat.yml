@@ -16,6 +16,7 @@ properties:
     required: true
     description: Parent nPM1300 MFD used to request ship mode
 
-  load-switch-gpios:
-    type: phandle-array
-    description: Nonessential-load enable driven inactive at low battery
+  ext-power:
+    type: phandle
+    required: true
+    description: External-power device controlling the nonessential RGB rail

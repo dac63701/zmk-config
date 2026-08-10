@@ -8,12 +8,14 @@
 
 #include <errno.h>
 #include <zephyr/device.h>
-#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/mfd/npm1300.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/sensor/npm1300_charger.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+
+#include <drivers/ext_power.h>
+#include <zmk/usb.h>
 
 #include "battery_thresholds.h"
 
@@ -26,14 +28,28 @@ LOG_MODULE_REGISTER(npm1300_vbat, CONFIG_SENSOR_LOG_LEVEL);
 struct npm1300_vbat_config {
     const struct device *charger;
     const struct device *pmic;
-    struct gpio_dt_spec load_switch;
+    const struct device *ext_power;
 };
 
 struct npm1300_vbat_data {
     const struct device *dev;
     struct k_work_delayable monitor_work;
     struct npm1300_battery_state battery_state;
+    int32_t filtered_mv;
+    bool filtered_voltage_valid;
 };
+
+static void npm1300_update_filtered_voltage(struct npm1300_vbat_data *data, int32_t millivolts)
+{
+    if (!data->filtered_voltage_valid) {
+        data->filtered_mv = millivolts;
+        data->filtered_voltage_valid = true;
+        return;
+    }
+
+    /* Five-second EMA: reject load/charge steps without hiding the long-term trend. */
+    data->filtered_mv = (data->filtered_mv * 3 + millivolts + 2) / 4;
+}
 
 static int npm1300_vbat_read(const struct device *dev, struct sensor_value *voltage)
 {
@@ -62,8 +78,8 @@ static int npm1300_vbus_present(const struct npm1300_vbat_config *config, bool *
 
 static void npm1300_disable_nonessential_loads(const struct npm1300_vbat_config *config)
 {
-    if (config->load_switch.port != NULL && device_is_ready(config->load_switch.port)) {
-        int ret = gpio_pin_set_dt(&config->load_switch, 0);
+    if (config->ext_power != NULL && device_is_ready(config->ext_power)) {
+        int ret = ext_power_disable(config->ext_power);
 
         if (ret != 0) {
             LOG_ERR("Failed to disable nonessential load: %d", ret);
@@ -109,17 +125,23 @@ static void npm1300_monitor_work(struct k_work *work)
             .warning_mv = CONFIG_ZMK_NPM1300_WARNING_MV,
             .ship_mv = CONFIG_ZMK_NPM1300_SHIP_MV,
             .recovery_mv = CONFIG_ZMK_NPM1300_RECOVERY_MV,
+            .warning_confirm_samples = CONFIG_ZMK_NPM1300_WARNING_CONFIRM_SAMPLES,
             .ship_confirm_samples = CONFIG_ZMK_NPM1300_SHIP_CONFIRM_SAMPLES,
         };
-        bool vbus_present = false;
-        ret = npm1300_vbus_present(config, &vbus_present);
+        bool vbus_present = zmk_usb_is_powered();
+        bool pmic_vbus_present = false;
+        ret = npm1300_vbus_present(config, &pmic_vbus_present);
         if (ret != 0) {
             LOG_ERR("Failed to read VBUS status: %d", ret);
         } else {
-            enum npm1300_battery_action action = npm1300_battery_step(
+            vbus_present = vbus_present || pmic_vbus_present;
+        }
+
+        npm1300_update_filtered_voltage(data, millivolts);
+        enum npm1300_battery_action action = npm1300_battery_step(
                 &data->battery_state, &thresholds, millivolts, vbus_present);
 
-            switch (action) {
+        switch (action) {
             case NPM1300_BATTERY_ACTION_DISABLE_LOAD:
                 LOG_WRN("Low battery: %d mV; disabling nonessential loads", millivolts);
                 /* Continue enforcing the cutoff on every monitor cycle. */
@@ -140,7 +162,6 @@ static void npm1300_monitor_work(struct k_work *work)
                     npm1300_disable_nonessential_loads(config);
                 }
                 break;
-            }
         }
     } else {
         LOG_ERR("Failed to monitor battery voltage: %d", ret);
@@ -152,25 +173,46 @@ static void npm1300_monitor_work(struct k_work *work)
 
 static int npm1300_vbat_sample_fetch(const struct device *dev, enum sensor_channel chan)
 {
+    const struct npm1300_vbat_config *config = dev->config;
+    if (chan == SENSOR_CHAN_NPM1300_CHARGER_STATUS) {
+        return sensor_sample_fetch_chan(config->charger, chan);
+    }
+
     if (chan != SENSOR_CHAN_ALL && chan != SENSOR_CHAN_VOLTAGE &&
         chan != SENSOR_CHAN_GAUGE_VOLTAGE) {
         return -ENOTSUP;
     }
 
-    struct sensor_value unused;
-    return npm1300_vbat_read(dev, &unused);
+    struct sensor_value voltage;
+    int ret = npm1300_vbat_read(dev, &voltage);
+    if (ret == 0) {
+        struct npm1300_vbat_data *data = dev->data;
+        int32_t millivolts = voltage.val1 * 1000 + voltage.val2 / 1000;
+        npm1300_update_filtered_voltage(data, millivolts);
+    }
+    return ret;
 }
 
 static int npm1300_vbat_channel_get(const struct device *dev, enum sensor_channel chan,
                                     struct sensor_value *value)
 {
     const struct npm1300_vbat_config *config = dev->config;
+    if (chan == SENSOR_CHAN_NPM1300_CHARGER_STATUS) {
+        return sensor_channel_get(config->charger, chan, value);
+    }
 
     if (chan != SENSOR_CHAN_VOLTAGE && chan != SENSOR_CHAN_GAUGE_VOLTAGE) {
         return -ENOTSUP;
     }
 
-    return sensor_channel_get(config->charger, SENSOR_CHAN_GAUGE_VOLTAGE, value);
+    struct npm1300_vbat_data *data = dev->data;
+    if (!data->filtered_voltage_valid) {
+        return -EAGAIN;
+    }
+
+    value->val1 = data->filtered_mv / 1000;
+    value->val2 = (data->filtered_mv % 1000) * 1000;
+    return 0;
 }
 
 static int npm1300_vbat_init(const struct device *dev)
@@ -179,7 +221,8 @@ static int npm1300_vbat_init(const struct device *dev)
     struct npm1300_vbat_data *data = dev->data;
     struct sensor_value enable = {.val1 = 1};
 
-    if (!device_is_ready(config->charger) || !device_is_ready(config->pmic)) {
+    if (!device_is_ready(config->charger) || !device_is_ready(config->pmic) ||
+        !device_is_ready(config->ext_power)) {
         return -ENODEV;
     }
 
@@ -211,7 +254,7 @@ static DEVICE_API(sensor, npm1300_vbat_api) = {
     static const struct npm1300_vbat_config npm1300_vbat_config_##inst = {                       \
         .charger = DEVICE_DT_GET(DT_INST_PHANDLE(inst, charger)),                                \
         .pmic = DEVICE_DT_GET(DT_INST_PHANDLE(inst, pmic)),                                      \
-        .load_switch = GPIO_DT_SPEC_INST_GET_OR(inst, load_switch_gpios, {0}),                   \
+        .ext_power = DEVICE_DT_GET(DT_INST_PHANDLE(inst, ext_power)),                            \
     };                                                                                            \
     SENSOR_DEVICE_DT_INST_DEFINE(inst, npm1300_vbat_init, NULL, &npm1300_vbat_data_##inst,       \
                                  &npm1300_vbat_config_##inst, POST_KERNEL,                        \

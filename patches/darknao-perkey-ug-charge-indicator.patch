@@ -1,0 +1,84 @@
+diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
+--- a/app/src/rgb_underglow.c
++++ b/app/src/rgb_underglow.c
+@@ -14,6 +14,8 @@
+ #include <zephyr/logging/log.h>
+ 
+ #include <zephyr/drivers/led_strip.h>
++#include <zephyr/drivers/sensor.h>
++#include <zephyr/drivers/sensor/npm1300_charger.h>
+ #include <drivers/ext_power.h>
+ #include <drivers/behavior.h>
+ 
+@@ -48,6 +50,11 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+ #define STRIP_CHOSEN DT_CHOSEN(zmk_underglow)
+ #define STRIP_NUM_PIXELS DT_PROP(STRIP_CHOSEN, chain_length)
+ 
++#if DT_HAS_CHOSEN(zmk_battery)
++#define BATTERY_CHOSEN DT_CHOSEN(zmk_battery)
++static const struct device *const battery = DEVICE_DT_GET(BATTERY_CHOSEN);
++#endif
++
+ #if DT_HAS_COMPAT_STATUS_OKAY(zmk_underglow_layer) && IS_ENABLED(CONFIG_EXPERIMENTAL_RGB_LAYER)
+ #define UNDERGLOW_LAYER_ENABLED 1
+ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup);
+@@ -491,3 +498,9 @@ int zmk_rgb_underglow_toggle(void) {
+ int zmk_rgb_underglow_toggle(void) {
++#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
++    /* A low-battery cutoff can remove the rail while desired state remains on. */
++    if (state.on && ext_power != NULL && ext_power_get(ext_power) == 0) {
++        return zmk_rgb_underglow_on();
++    }
++#endif
+     return state.on ? zmk_rgb_underglow_off() : zmk_rgb_underglow_on();
+ }
+@@ -503,9 +516,34 @@ static struct led_rgb hex_to_rgb(uint8_t r, uint8_t g, uint8_t b) {
+     };
+ }
+ 
++static int zmk_rgb_underglow_charge_indicator_color(void) {
++    if (!zmk_usb_is_powered()) {
++        return 0;
++    }
++
++    /* Blue means externally powered when the charger state cannot be read. */
++    int color = 0x0000ff;
++#if DT_HAS_CHOSEN(zmk_battery)
++    struct sensor_value status;
++    if (device_is_ready(battery) &&
++        sensor_sample_fetch_chan(battery, SENSOR_CHAN_NPM1300_CHARGER_STATUS) == 0 &&
++        sensor_channel_get(battery, SENSOR_CHAN_NPM1300_CHARGER_STATUS, &status) == 0) {
++        if (status.val1 & BIT(1)) {
++            /* BCHGCHARGESTATUS.COMPLETED */
++            color = 0x00ff00;
++        } else if (status.val1 & (BIT(2) | BIT(3) | BIT(4))) {
++            /* Trickle, constant-current, or constant-voltage charging. */
++            color = 0xff8000;
++        }
++    }
++#endif
++    return color;
++}
++
+ static int zmk_rgb_underglow_apply_rgbmap(const struct zmk_behavior_binding *bindings,
+                                           size_t rgbmap_len, uint8_t layer) {
+     int rc = 0;
++    int charge_indicator_color = zmk_rgb_underglow_charge_indicator_color();
+     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+         uint8_t midx = rgb_pixel_lookup(i);
+         if (midx >= ZMK_KEYMAP_LEN) {
+@@ -535,6 +573,14 @@ static int zmk_rgb_underglow_apply_rgbmap(const struct zmk_behavior_binding *bin
+                 pixels[i] = (struct led_rgb){r : 0, g : 0, b : 0};
+             }
+         }
++
++        /* Fn+Backspace is unused, so its LED doubles as the USB charge indicator. */
++        if (midx == 13 && charge_indicator_color > 0) {
++            pixels[i] = hex_to_rgb((charge_indicator_color & 0xFF0000) >> 16,
++                                   (charge_indicator_color & 0xFF00) >> 8,
++                                   charge_indicator_color & 0xFF);
++            rc = 1;
++        }
+     }
+     return rc;
+ }

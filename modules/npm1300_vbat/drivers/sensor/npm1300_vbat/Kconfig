@@ -35,6 +35,11 @@ config ZMK_NPM1300_MONITOR_INTERVAL_SECONDS
 	default 5
 	range 1 300
 
+config ZMK_NPM1300_WARNING_CONFIRM_SAMPLES
+	int "Consecutive low-voltage samples required to disable nonessential loads"
+	default 3
+	range 1 10
+
 config ZMK_NPM1300_SHIP_CONFIRM_SAMPLES
 	int "Consecutive critical samples required for ship mode"
 	default 3

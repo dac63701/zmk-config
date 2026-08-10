@@ -157,7 +157,7 @@
             compatible = "zmk,npm1300-vbat";
             charger = <&npm1300_charger>;
             pmic = <&npm1300>;
-            load-switch-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
+            ext-power = <&led_power>;
             status = "okay";
         };
     };
