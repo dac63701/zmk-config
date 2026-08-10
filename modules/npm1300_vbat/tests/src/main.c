@@ -52,8 +52,14 @@ ZTEST(npm1300_vbat, test_zero_voltage_with_vbus_never_enters_ship_mode)
                   NPM1300_BATTERY_ACTION_DISABLE_LOAD, NULL);
     zassert_equal(npm1300_battery_step(&state, &thresholds, 0, true),
                   NPM1300_BATTERY_ACTION_NONE, NULL);
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 0, true),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
     zassert_true(state.warning_active, NULL);
     zassert_equal(state.critical_samples, thresholds.ship_confirm_samples, NULL);
+
+    /* Confirmation remains reached, but USB continues to defer ship mode. */
+    zassert_equal(npm1300_battery_step(&state, &thresholds, 0, true),
+                  NPM1300_BATTERY_ACTION_NONE, NULL);
 }
 
 ZTEST(npm1300_vbat, test_voltage_above_ship_resets_confirmation)
