@@ -1,0 +1,59 @@
+diff --git a/app/src/pm.c b/app/src/pm.c
+--- a/app/src/pm.c
++++ b/app/src/pm.c
+@@ -17,4 +17,5 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+ 
+ #include <zmk/endpoints.h>
++#include <zmk/rgb_underglow.h>
+ 
+ // Reimplement some of the device work from Zephyr PM to work with the new `sys_poweroff` API.
+@@ -88,6 +89,13 @@ const struct device *soft_off_wakeup_sources[] = {
+ #endif
+ 
+ int zmk_pm_soft_off(void) {
++#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
++    /* Clear the strip and disable its load-switched rail before System OFF. */
++    zmk_rgb_underglow_off();
++    /* The underglow worker needs a scheduling window to latch black and drop power. */
++    k_sleep(K_MSEC(10));
++#endif
++
+ #if IS_ENABLED(CONFIG_PM_DEVICE)
+     size_t device_count;
+     const struct device *devs;
+diff --git a/app/dts/bindings/behaviors/zmk,behavior-soft-off.yaml b/app/dts/bindings/behaviors/zmk,behavior-soft-off.yaml
+--- a/app/dts/bindings/behaviors/zmk,behavior-soft-off.yaml
++++ b/app/dts/bindings/behaviors/zmk,behavior-soft-off.yaml
+@@ -15,3 +15,6 @@ properties:
+   split-peripheral-off-on-press:
+     type: boolean
+     description: When built for a split peripheral, turn off on press, not release
++  trigger-on-press:
++    type: boolean
++    description: Turn off immediately when pressed. Intended for a maintained power switch.
+diff --git a/app/src/behaviors/behavior_soft_off.c b/app/src/behaviors/behavior_soft_off.c
+--- a/app/src/behaviors/behavior_soft_off.c
++++ b/app/src/behaviors/behavior_soft_off.c
+@@ -17,5 +17,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+ 
+ struct behavior_soft_off_config {
+     bool split_peripheral_turn_off_on_press;
++    bool trigger_on_press;
+     uint32_t hold_time_ms;
+ };
+@@ -33,7 +34,7 @@ static int on_keymap_binding_pressed(struct zmk_behavior_binding *binding,
+     struct behavior_soft_off_data *data = dev->data;
+     const struct behavior_soft_off_config *config = dev->config;
+ 
+-    if (IS_SPLIT_PERIPHERAL && config->split_peripheral_turn_off_on_press) {
++    if (config->trigger_on_press || (IS_SPLIT_PERIPHERAL && config->split_peripheral_turn_off_on_press)) {
+         zmk_pm_soft_off();
+     } else {
+         data->press_start = k_uptime_get();
+@@ -81,5 +82,6 @@ static const struct behavior_driver_api behavior_soft_off_driver_api = {
+     static const struct behavior_soft_off_config bso_config_##n = {                                \
+         .hold_time_ms = DT_INST_PROP_OR(n, hold_time_ms, 0),                                       \
+         .split_peripheral_turn_off_on_press =                                                      \
+             DT_INST_PROP_OR(n, split_peripheral_off_on_press, false),                              \
++        .trigger_on_press = DT_INST_PROP_OR(n, trigger_on_press, false),                           \
+     };                                                                                             \
