@@ -8,6 +8,7 @@
 #include <nordic/nrf52840_qiaa.dtsi>
 
 #include <dt-bindings/led/led.h>
+#include <dt-bindings/input/input-event-codes.h>
 #include <dt-bindings/zmk/matrix_transform.h>
 
 #include <layouts/common/60percent/ansi.dtsi>
@@ -68,18 +69,20 @@
         };
     };
 
-    /*
-     * The wake-trigger binding takes a phandle to a node with a `gpios`
-     * property, rather than a raw GPIO spec.
-     */
-    power_switch_wake_gpio: power_switch_wake_gpio {
-        gpios = <&gpio0 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+    /* The wake-trigger binding requires a GPIO-key node, not a raw GPIO spec. */
+    power_switch_keys: power_switch_keys {
+        compatible = "gpio-keys";
+
+        power_switch_wake_key: power_switch_wake_key {
+            gpios = <&gpio0 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+            zephyr,code = <INPUT_KEY_POWER>;
+        };
     };
 
     /* Enable the rising (OFF-to-ON) transition as the System OFF wake source. */
     power_switch_waker: power_switch_waker {
         compatible = "zmk,gpio-key-wakeup-trigger";
-        trigger = <&power_switch_wake_gpio>;
+        trigger = <&power_switch_wake_key>;
     };
 
     soft_off_wakeup_sources {
