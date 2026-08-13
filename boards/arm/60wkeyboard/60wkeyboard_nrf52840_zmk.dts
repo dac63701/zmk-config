@@ -68,10 +68,18 @@
         };
     };
 
+    /*
+     * The wake-trigger binding takes a phandle to a node with a `gpios`
+     * property, rather than a raw GPIO spec.
+     */
+    power_switch_wake_gpio: power_switch_wake_gpio {
+        gpios = <&gpio0 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+    };
+
     /* Enable the rising (OFF-to-ON) transition as the System OFF wake source. */
     power_switch_waker: power_switch_waker {
         compatible = "zmk,gpio-key-wakeup-trigger";
-        trigger = <&gpio0 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+        trigger = <&power_switch_wake_gpio>;
     };
 
     soft_off_wakeup_sources {
