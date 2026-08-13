@@ -79,6 +79,14 @@
         wakeup-sources = <&power_switch_waker>;
     };
 
+    behaviors {
+        power_switch_soft_off: power_switch_soft_off {
+            compatible = "zmk,behavior-soft-off";
+            #binding-cells = <0>;
+            trigger-on-press;
+        };
+    };
+
     kscan0: kscan {
         compatible = "zmk,kscan-gpio-matrix";
         wakeup-source;
@@ -244,9 +252,4 @@ zephyr_udc0: &usbd {
 
 &layout_60_ansi {
     transform = <&default_transform>;
-};
-
-/* A maintained switch never releases while off, so shut down on its press. */
-&soft_off {
-    trigger-on-press;
 };

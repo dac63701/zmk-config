@@ -19,7 +19,7 @@
                 &kp CLCK  &kp A  &kp S  &kp D  &kp F  &kp G  &kp H  &kp J  &kp K  &kp L  &kp SEMI &kp SQT           &kp RET
                 &kp LSHFT   &kp Z  &kp X  &kp C  &kp V  &kp B  &kp N  &kp M  &kp COMMA &kp DOT &kp FSLH           &kp RSHFT
                 &kp LCTRL &kp LGUI &kp LALT             &kp SPACE                     &kp RALT  &kp RGUI  &mo 1   &kp RCTRL
-                &soft_off
+                &power_switch_soft_off
             >;
         };
         rgb_layer {
@@ -36,7 +36,7 @@
                 &bt BT_SEL 1  &kp LEFT  &kp DOWN  &kp RIGHT &kp PG_DN  &trans  &trans  &trans      &trans      &trans     &trans       &trans            &trans
                 &bt BT_SEL 2  &trans    &trans    &trans    &trans  &trans  &kp C_VOL_DN  &kp C_VOL_UP  &kp C_PREV  &kp C_NEXT  &trans                        &trans
                 &bt BT_SEL 3  &trans    &trans                            &rgb_ug RGB_TOG                         &kp C_MUTE   &kp PSCRN      &trans    &kp DEL
-                &soft_off
+                &power_switch_soft_off
             >;
         };
     };
