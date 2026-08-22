@@ -83,6 +83,7 @@
     power_switch_waker: power_switch_waker {
         compatible = "zmk,gpio-key-wakeup-trigger";
         trigger = <&power_switch_wake_key>;
+        wakeup-source;
     };
 
     soft_off_wakeup_sources {
