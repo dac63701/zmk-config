@@ -42,6 +42,10 @@ index 865d8ae..406b72a 100644
  #endif
      }
  
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    zmk_rgb_underglow_apply_caps_lock_indicator(pixels);
++#endif
+
 +    /* Off can be requested while this frame is being calculated. Never send
 +     * another color frame after the shutdown path has taken ownership. */
 +    if (!runtime_on) {
