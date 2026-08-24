@@ -1,5 +1,5 @@
 diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
-index 95d574d8..32827868 100644
+index fb75097a..b9a8bd58 100644
 --- a/app/src/rgb_underglow.c
 +++ b/app/src/rgb_underglow.c
 @@ -108,11 +108,24 @@ static bool layer_active;
@@ -153,22 +153,3 @@ index 95d574d8..32827868 100644
          if (err < 0) {
              LOG_ERR("Failed to update the RGB strip (%d)", err);
          }
-@@ -782,7 +847,17 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
- #endif
-             if (zmk_rgb_underglow_caps_lock_on()) {
-                 if (zmk_rgb_underglow_apply_caps_lock_indicator(pixels)) {
--                    int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
-+                #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
-+    zmk_rgb_underglow_apply_caps_lock_indicator(pixels);
-+#endif
-+
-+    /* Off can be requested while this frame is being calculated. Never send
-+     * another color frame after the shutdown path has taken ownership. */
-+    if (!runtime_on) {
-+        return;
-+    }
-+
-+    int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
-                     if (err < 0) {
-                         LOG_ERR("Failed to update caps lock indicator (%d)", err);
-                     }

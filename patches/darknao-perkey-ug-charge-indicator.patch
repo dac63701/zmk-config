@@ -111,16 +111,16 @@ index bd24db6e..95d574d8 100644
 +    if (as_zmk_hid_indicators_changed(eh)) {
 +        if (state.on && runtime_on) {
 +#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
-+            if (state.layer_enabled && layer_active) {
++            if (layer_active) {
 +                zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
 +                return 0;
 +            }
 +#endif
 +            if (zmk_rgb_underglow_caps_lock_on()) {
 +                if (zmk_rgb_underglow_apply_caps_lock_indicator(pixels)) {
-+                    int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
-+                    if (err < 0) {
-+                        LOG_ERR("Failed to update caps lock indicator (%d)", err);
++                    int caps_err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
++                    if (caps_err < 0) {
++                        LOG_ERR("Failed to update caps lock indicator (%d)", caps_err);
 +                    }
 +                }
 +            } else {
