@@ -1,5 +1,5 @@
 diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
-index 92e92589..e318a3fe 100644
+index 95d574d8..32827868 100644
 --- a/app/src/rgb_underglow.c
 +++ b/app/src/rgb_underglow.c
 @@ -108,11 +108,24 @@ static bool layer_active;
@@ -134,7 +134,7 @@ index 92e92589..e318a3fe 100644
  }
  
  K_WORK_DEFINE(underglow_off_work, zmk_rgb_underglow_off_handler);
-@@ -620,7 +675,17 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
+@@ -622,7 +677,17 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
          }
          k_timer_stop(&underglow_tick);
          LOG_DBG("write pixels");
@@ -153,7 +153,7 @@ index 92e92589..e318a3fe 100644
          if (err < 0) {
              LOG_ERR("Failed to update the RGB strip (%d)", err);
          }
-@@ -780,7 +845,17 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
+@@ -782,7 +847,17 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
  #endif
              if (zmk_rgb_underglow_caps_lock_on()) {
                  if (zmk_rgb_underglow_apply_caps_lock_indicator(pixels)) {

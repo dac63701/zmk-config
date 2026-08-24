@@ -1,5 +1,5 @@
 diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
-index bd24db6e..92e92589 100644
+index bd24db6e..95d574d8 100644
 --- a/app/src/rgb_underglow.c
 +++ b/app/src/rgb_underglow.c
 @@ -15,8 +15,15 @@
@@ -34,7 +34,7 @@ index bd24db6e..92e92589 100644
  #endif
  
  #define HUE_MAX 360
-@@ -486,11 +499,66 @@ int zmk_rgb_underglow_cycle_effect(int direction) {
+@@ -486,11 +499,68 @@ int zmk_rgb_underglow_cycle_effect(int direction) {
  }
  
  int zmk_rgb_underglow_toggle(void) {
@@ -49,6 +49,8 @@ index bd24db6e..92e92589 100644
  
  #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
  
++static struct led_rgb hex_to_rgb(uint8_t r, uint8_t g, uint8_t b);
++
 +#define CAPS_LOCK_KEYMAP_INDEX 28
 +
 +static bool zmk_rgb_underglow_caps_lock_on(void) {
@@ -101,7 +103,7 @@ index bd24db6e..92e92589 100644
  static struct led_rgb hex_to_rgb(uint8_t r, uint8_t g, uint8_t b) {
      uint8_t max = MAX(r, MAX(g, b));
      uint8_t saturated_r = max - ((max - r) * state.color.s) / SAT_MAX;
-@@ -701,6 +769,30 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
+@@ -701,6 +771,30 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
      }
  #endif
  
@@ -132,7 +134,7 @@ index bd24db6e..92e92589 100644
  #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
  #if IS_ENABLED(CONFIG_ZMK_SPLIT)
      if (as_zmk_split_peripheral_layer_changed(eh)) {
-@@ -776,4 +868,8 @@ ZMK_SUBSCRIPTION(rgb_underglow, zmk_layer_state_changed);
+@@ -776,4 +870,8 @@ ZMK_SUBSCRIPTION(rgb_underglow, zmk_layer_state_changed);
  ZMK_SUBSCRIPTION(rgb_underglow, zmk_underglow_color_changed);
  #endif
  
