@@ -1,7 +1,8 @@
 diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
+index bd24db6e..92e92589 100644
 --- a/app/src/rgb_underglow.c
 +++ b/app/src/rgb_underglow.c
-@@ -14,6 +14,8 @@
+@@ -15,8 +15,15 @@
  #include <zephyr/logging/log.h>
  
  #include <zephyr/drivers/led_strip.h>
@@ -11,8 +12,13 @@ diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
  #include <drivers/ext_power.h>
  #include <drivers/behavior.h>
 +#include <zmk/hid_indicators.h>
++#if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
++#include <zmk/events/hid_indicators_changed.h>
++#endif
  
-@@ -48,6 +50,11 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+ #include <zmk/rgb_underglow.h>
+ #include <zmk/rgb_underglow_layer.h>
+@@ -50,9 +57,15 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
  #define STRIP_CHOSEN DT_CHOSEN(zmk_underglow)
  #define STRIP_NUM_PIXELS DT_PROP(STRIP_CHOSEN, chain_length)
  
@@ -25,7 +31,12 @@ diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
  #define UNDERGLOW_LAYER_ENABLED 1
  static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup);
 +static bool zmk_rgb_underglow_apply_caps_lock_indicator(struct led_rgb *target_pixels);
-@@ -491,3 +498,9 @@ int zmk_rgb_underglow_toggle(void) {
+ #endif
+ 
+ #define HUE_MAX 360
+@@ -486,11 +499,66 @@ int zmk_rgb_underglow_cycle_effect(int direction) {
+ }
+ 
  int zmk_rgb_underglow_toggle(void) {
 +#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
 +    /* A low-battery cutoff can remove the rail while desired state remains on. */
@@ -35,15 +46,14 @@ diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
 +#endif
      return state.on ? zmk_rgb_underglow_off() : zmk_rgb_underglow_on();
  }
-@@ -503,9 +516,34 @@ static struct led_rgb hex_to_rgb(uint8_t r, uint8_t g, uint8_t b) {
-     };
- }
-
+ 
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+ 
 +#define CAPS_LOCK_KEYMAP_INDEX 28
 +
 +static bool zmk_rgb_underglow_caps_lock_on(void) {
 +#if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
-+    return (zmk_hid_indicators_get_current_profile() & HID_INDICATOR_CAPS_LOCK) != 0;
++    return (zmk_hid_indicators_get_current_profile() & BIT(CAPS_LOCK)) != 0;
 +#else
 +    return false;
 +#endif
@@ -63,7 +73,7 @@ diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
 +
 +    return false;
 +}
- 
++
 +static int zmk_rgb_underglow_charge_indicator_color(void) {
 +    if (!zmk_usb_is_powered()) {
 +        return 0;
@@ -88,30 +98,46 @@ diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
 +    return color;
 +}
 +
- static int zmk_rgb_underglow_apply_rgbmap(const struct zmk_behavior_binding *bindings,
-                                           size_t rgbmap_len, uint8_t layer) {
-     int rc = 0;
-+    int charge_indicator_color = zmk_rgb_underglow_charge_indicator_color();
-     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
-         uint8_t midx = rgb_pixel_lookup(i);
-         if (midx >= ZMK_KEYMAP_LEN) {
-@@ -535,6 +573,14 @@ static int zmk_rgb_underglow_apply_rgbmap(const struct zmk_behavior_binding *bin
-                 pixels[i] = (struct led_rgb){r : 0, g : 0, b : 0};
-             }
-         }
-+
-+        /* Fn+Backspace is unused, so its LED doubles as the USB charge indicator. */
-+        if (midx == 13 && charge_indicator_color > 0) {
-+            pixels[i] = hex_to_rgb((charge_indicator_color & 0xFF0000) >> 16,
-+                                   (charge_indicator_color & 0xFF00) >> 8,
-+                                   charge_indicator_color & 0xFF);
-+            rc = 1;
-+        }
+ static struct led_rgb hex_to_rgb(uint8_t r, uint8_t g, uint8_t b) {
+     uint8_t max = MAX(r, MAX(g, b));
+     uint8_t saturated_r = max - ((max - r) * state.color.s) / SAT_MAX;
+@@ -701,6 +769,30 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
      }
-
-+    if (zmk_rgb_underglow_apply_caps_lock_indicator(pixels)) {
-+        rc = 1;
+ #endif
+ 
++#if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
++    if (as_zmk_hid_indicators_changed(eh)) {
++        if (state.on && runtime_on) {
++#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++            if (state.layer_enabled && layer_active) {
++                zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
++                return 0;
++            }
++#endif
++            if (zmk_rgb_underglow_caps_lock_on()) {
++                if (zmk_rgb_underglow_apply_caps_lock_indicator(pixels)) {
++                    int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
++                    if (err < 0) {
++                        LOG_ERR("Failed to update caps lock indicator (%d)", err);
++                    }
++                }
++            } else {
++                k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
++            }
++        }
++        return 0;
 +    }
-
-     return rc;
- }
++#endif
++
+ #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
+ #if IS_ENABLED(CONFIG_ZMK_SPLIT)
+     if (as_zmk_split_peripheral_layer_changed(eh)) {
+@@ -776,4 +868,8 @@ ZMK_SUBSCRIPTION(rgb_underglow, zmk_layer_state_changed);
+ ZMK_SUBSCRIPTION(rgb_underglow, zmk_underglow_color_changed);
+ #endif
+ 
++#if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
++ZMK_SUBSCRIPTION(rgb_underglow, zmk_hid_indicators_changed);
++#endif
++
+ SYS_INIT(zmk_rgb_underglow_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);

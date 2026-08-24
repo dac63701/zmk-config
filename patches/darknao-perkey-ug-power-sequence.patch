@@ -1,8 +1,8 @@
 diff --git a/app/src/rgb_underglow.c b/app/src/rgb_underglow.c
-index 865d8ae..406b72a 100644
+index 92e92589..e318a3fe 100644
 --- a/app/src/rgb_underglow.c
 +++ b/app/src/rgb_underglow.c
-@@ -102,11 +102,24 @@ static bool layer_active;
+@@ -108,11 +108,24 @@ static bool layer_active;
  #endif
  static bool runtime_on;
  static bool auto_suspended;
@@ -27,25 +27,24 @@ index 865d8ae..406b72a 100644
  static struct zmk_led_hsb hsb_scale_min_max(struct zmk_led_hsb hsb) {
      hsb.b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN +
              (CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX - CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN) * hsb.b / BRT_MAX;
-@@ -247,6 +260,10 @@ static void zmk_rgb_underglow_effect_horizontal_rainbow(void) {
+@@ -253,6 +266,9 @@ static void zmk_rgb_underglow_effect_horizontal_rainbow(void) {
  #endif // IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
  
  static void zmk_rgb_underglow_tick(struct k_work *work) {
 +    if (!runtime_on) {
 +        return;
 +    }
-+
  #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
      zmk_rgb_underglow_set_layer(rgb_underglow_top_layer(), true);
      if (layer_active) {
-@@ -274,6 +291,12 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
+@@ -280,6 +296,16 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
  #endif
      }
  
 +#if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
 +    zmk_rgb_underglow_apply_caps_lock_indicator(pixels);
 +#endif
-
++
 +    /* Off can be requested while this frame is being calculated. Never send
 +     * another color frame after the shutdown path has taken ownership. */
 +    if (!runtime_on) {
@@ -55,7 +54,7 @@ index 865d8ae..406b72a 100644
      int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
      if (err < 0) {
          LOG_ERR("Failed to update the RGB strip (%d)", err);
-@@ -329,6 +352,7 @@ static struct k_work_delayable underglow_save_work;
+@@ -335,6 +361,7 @@ static struct k_work_delayable underglow_save_work;
  
  static int zmk_rgb_underglow_init(void) {
      led_strip = DEVICE_DT_GET(STRIP_CHOSEN);
@@ -63,7 +62,7 @@ index 865d8ae..406b72a 100644
  
  #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
      if (!device_is_ready(ext_power)) {
-@@ -399,6 +423,16 @@ int zmk_rgb_underglow_transient_on(void) {
+@@ -405,6 +432,16 @@ int zmk_rgb_underglow_transient_on(void) {
      if (!led_strip)
          return -ENODEV;
  
@@ -80,7 +79,7 @@ index 865d8ae..406b72a 100644
  #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
      if (ext_power != NULL) {
          int rc = ext_power_enable(ext_power);
-@@ -406,9 +440,25 @@ int zmk_rgb_underglow_transient_on(void) {
+@@ -412,6 +449,13 @@ int zmk_rgb_underglow_transient_on(void) {
              LOG_ERR("Unable to enable EXT_POWER: %d", rc);
          }
      }
@@ -93,21 +92,8 @@ index 865d8ae..406b72a 100644
 +    }
  #endif
  
--    runtime_on = true;
-+    /* Establish a known all-black latch before painting the requested frame.
-+     * This also leaves MOSI low instead of back-powering an unpowered strip. */
-+    zmk_rgb_underglow_clear_strip();
-+    k_msleep(UNDERGLOW_LATCH_MS);
-+
-+    if (!runtime_on) {
-+        k_mutex_unlock(&power_lock);
-+        return 0;
-+    }
-+
- #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
-     if (!layer_active) {
-         k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
-@@ -417,28 +467,39 @@ int zmk_rgb_underglow_transient_on(void) {
+     runtime_on = true;
+@@ -423,19 +467,28 @@ int zmk_rgb_underglow_transient_on(void) {
      k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(ANIMATION_TICK_MS));
  #endif
  
@@ -138,11 +124,8 @@ index 865d8ae..406b72a 100644
 +    k_msleep(UNDERGLOW_LATCH_MS);
  
  #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
--    if (ext_power != NULL) {
-+    if (!runtime_on && ext_power != NULL) {
-         int rc = ext_power_disable(ext_power);
-         if (rc != 0) {
-             LOG_ERR("Unable to disable EXT_POWER: %d", rc);
+     if (ext_power != NULL) {
+@@ -445,6 +498,8 @@ static void zmk_rgb_underglow_off_handler(struct k_work *work) {
          }
      }
  #endif
@@ -151,3 +134,41 @@ index 865d8ae..406b72a 100644
  }
  
  K_WORK_DEFINE(underglow_off_work, zmk_rgb_underglow_off_handler);
+@@ -620,7 +675,17 @@ static void zmk_rgb_underglow_set_layer(uint8_t layer, bool wakeup) {
+         }
+         k_timer_stop(&underglow_tick);
+         LOG_DBG("write pixels");
+-        int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
++    #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    zmk_rgb_underglow_apply_caps_lock_indicator(pixels);
++#endif
++
++    /* Off can be requested while this frame is being calculated. Never send
++     * another color frame after the shutdown path has taken ownership. */
++    if (!runtime_on) {
++        return;
++    }
++
++    int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
+         if (err < 0) {
+             LOG_ERR("Failed to update the RGB strip (%d)", err);
+         }
+@@ -780,7 +845,17 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
+ #endif
+             if (zmk_rgb_underglow_caps_lock_on()) {
+                 if (zmk_rgb_underglow_apply_caps_lock_indicator(pixels)) {
+-                    int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
++                #if IS_ENABLED(UNDERGLOW_LAYER_ENABLED)
++    zmk_rgb_underglow_apply_caps_lock_indicator(pixels);
++#endif
++
++    /* Off can be requested while this frame is being calculated. Never send
++     * another color frame after the shutdown path has taken ownership. */
++    if (!runtime_on) {
++        return;
++    }
++
++    int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
+                     if (err < 0) {
+                         LOG_ERR("Failed to update caps lock indicator (%d)", err);
+                     }
